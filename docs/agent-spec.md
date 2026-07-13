@@ -1,7 +1,7 @@
 # XG Canvas — Agent 子系统规范(内置工具 + 工具循环 + 会话)
 
 > 规划/蓝图。配套 [adapter-guide.md §10](./adapter-guide.md)(工具/流式/结构化输出契约)、[task-lifecycle.md](./task-lifecycle.md)。
-> **当前现状**:`apps/canvas-api/src/agent/agent.service.ts` 是"让模型吐一个 JSON patch"的一次性玩法,**不是真工具循环**;scaffold 阶段按本文重写,先留骨架,具体工具清单后续再定。
+> **当前现状**:`apps/canvas-api/src/agent/agent.service.ts` 是"让模型吐一个 JSON patch"的一次性玩法,**不是真工具循环**;scaffold 阶段按本文重写，工具随实现与契约验收逐项进入正式支持清单。
 
 ## 1. 定位
 
@@ -9,10 +9,10 @@ Agent 是**封装好的内置能力,用户只管用**(如"一句话生图")。�
 
 ## 2. 两条道(别一刀切)
 
-| 形态 | 持久化 | 说明 |
-|---|---|---|
-| **生成**(图/视频/长文) | **重 task**(`canvas.tasks` + `FOR UPDATE SKIP LOCKED` + 轮询,见 task-lifecycle) | 异步、可恢复、刷新不丢 |
-| **对话**(Agent 聊天) | **轻会话**(`canvas.conversations` / `canvas.messages`) | 流式回显、可回看、可续聊 |
+| 形态                   | 持久化                                                                          | 说明                     |
+| ---------------------- | ------------------------------------------------------------------------------- | ------------------------ |
+| **生成**(图/视频/长文) | **重 task**(`canvas.tasks` + `FOR UPDATE SKIP LOCKED` + 轮询,见 task-lifecycle) | 异步、可恢复、刷新不丢   |
+| **对话**(Agent 聊天)   | **轻会话**(`canvas.conversations` / `canvas.messages`)                          | 流式回显、可回看、可续聊 |
 
 > **"一句话生图" = 一条会话消息(流式回显)+ Agent 调 `generate_image` 工具 → 产出一条 `gen.image` task。** 聊天是聊天、生成是任务,Agent 把两者缝起来:消息里挂上它触发的 `task_ids`,前端在对话流里渲染"任务卡片"并实时更新。
 
@@ -24,16 +24,26 @@ Agent 是**封装好的内置能力,用户只管用**(如"一句话生图")。�
 
 ```ts
 interface BuiltinTool {
-  def: ToolDef;                                   // name + description + parameters_jsonschema(见 adapter-guide §10.1)
+  def: ToolDef; // name + description + parameters_jsonschema(见 adapter-guide §10.1)
   handler(args: object, ctx: ToolCtx): Promise<ToolOutcome>;
 }
-interface ToolCtx { userId; workspaceId; projectId; conversationId; }
-interface ToolOutcome { summary: string; task_ids?: string[]; node_ids?: string[]; data?: unknown; }
+interface ToolCtx {
+  userId;
+  workspaceId;
+  projectId;
+  conversationId;
+}
+interface ToolOutcome {
+  summary: string;
+  task_ids?: string[];
+  node_ids?: string[];
+  data?: unknown;
+}
 ```
 
 - 一个 `BuiltinToolRegistry`(name -> BuiltinTool),Agent 据 `tool_use` 能力把 `def[]` 喂给模型。
 - handler **直接调已有 service**(`task.service` 建任务 / canvas 节点 CRUD / `script.llm-extract` 抽取),不重复实现。
-- **示例工具(占位,后续定清单)**:`generate_image` / `generate_video` / `generate_text` / `create_node` / `edit_node` / `connect_nodes` / `extract_characters` …
+- **规划中的候选工具类别（当前未开放工具循环）**：`generate_image` / `generate_video` / `generate_text` / `create_node` / `edit_node` / `connect_nodes` / `extract_characters` …
 
 ## 4. Agent 循环(住 canvas-api,不在 Adapter)
 

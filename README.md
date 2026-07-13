@@ -15,6 +15,17 @@ XG Canvas 的核心差异是 **BYOK（企业自带模型凭证）+ 自托管 + �
 > [!WARNING]
 > XG Canvas 当前处于 Beta 阶段。核心架构与主要产品链路已经建立，部分真实模型调用、生产部署和企业增强能力仍在验证或规划中。接口、配置和数据结构在稳定版前可能调整，暂不建议直接用于关键生产业务。
 
+## 项目地址
+
+| 入口            | 地址                                                                                 | 用途                                 |
+| --------------- | ------------------------------------------------------------------------------------ | ------------------------------------ |
+| GitHub          | [github.com/liuxiaogang-com/xg-canvas](https://github.com/liuxiaogang-com/xg-canvas) | 源码、Issue 与后续协作入口           |
+| CNB（国内访问） | [cnb.cool/liuxiaogang/xg-canvas](https://cnb.cool/liuxiaogang/xg-canvas)             | 代码仓库、自动构建记录与 Docker 制品 |
+
+正式部署默认从 CNB 公开制品库拉取应用镜像；从 GitHub 或 CNB 获取的同版本代码均可用于
+本地开发。问题反馈可提交到 [GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues)
+或 [CNB Issues](https://cnb.cool/liuxiaogang/xg-canvas/-/issues)。
+
 ## 为什么需要 XG Canvas
 
 | 企业痛点                                              | XG Canvas 的处理方式                                                     |
@@ -168,6 +179,16 @@ canvas-api (NestJS 模块化单体)
 
 扩展面包括 Adapter、模型 YAML、节点契约、输入输出类型、Prompt Preset 和 Agent 工具规范。详细设计见 [`docs/`](./docs/)。
 
+## 技术栈
+
+| 层次       | 主要技术                                                |
+| ---------- | ------------------------------------------------------- |
+| Web        | React 18、TypeScript、Vite、React Flow                  |
+| API        | NestJS、TypeORM                                         |
+| 数据与存储 | PostgreSQL 18、Redis 8、S3 / R2 兼容对象存储            |
+| 工程与部署 | Node.js 22、pnpm workspaces、Docker Compose、Nginx、CNB |
+| 官网与文档 | Astro、Starlight                                        |
+
 ## 本地启动
 
 ### 环境要求
@@ -178,9 +199,25 @@ canvas-api (NestJS 模块化单体)
 
 ### 开发模式
 
+可从任一公开仓库获取源码。
+
+GitHub：
+
 ```bash
 git clone https://github.com/liuxiaogang-com/xg-canvas.git
 cd xg-canvas
+```
+
+中国大陆网络环境也可以使用 CNB：
+
+```bash
+git clone https://cnb.cool/liuxiaogang/xg-canvas.git
+cd xg-canvas
+```
+
+获取源码后启动开发栈：
+
+```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
@@ -190,16 +227,26 @@ docker compose -f docker-compose.dev.yml up --build
 
 ### 发布镜像部署
 
-正式编排无需 `.env`，会从公开 CNB 制品库拉取应用的 `latest` 镜像，并在同一项目网络中启动
+正式编排无需 `.env`，默认从 CNB 公开制品库拉取以下应用镜像，并在同一项目网络中启动
 PostgreSQL 18、Redis 8、数据库迁移、API 与 Web：
 
+```text
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
+```
+
+这些镜像由 [CNB 仓库](https://cnb.cool/liuxiaogang/xg-canvas)的 `main` 构建流水线生成；公开部署
+目前统一使用持续更新的 `latest` 标签。当前只构建 `linux/amd64`，ARM 设备尚未完成兼容验证。
+首次部署或更新时执行：
+
 ```bash
+docker compose pull
 docker compose up -d
 ```
 
 宿主机只暴露 `http://localhost:5180`；数据库、Redis 与 API 不占用宿主机端口。首次打开同样会
-进入 `/setup`。更新时执行 `docker compose pull && docker compose up -d`；Beta 阶段的
-`latest` 发布不提供标签级回滚，升级前请备份数据库、对象存储和 `encryption-data` 卷。
+进入 `/setup`。Compose 已对应用镜像设置 `pull_policy: always`，重新部署时会检查并拉取最新
+制品。Beta 阶段升级前仍应备份 PostgreSQL、对象存储和 `encryption-data` 卷。
 
 对象存储和 Provider 凭证随后在后台配置。请阅读：
 
@@ -237,6 +284,18 @@ docker compose up -d
 - 外部密钥系统、独立 Worker、高可用、监控告警与灾备。
 - 企业内部系统、数据源和模型平台集成。
 
+## 开源致谢与产品灵感
+
+XG Canvas 的产品形态受到 [ComfyUI](https://github.com/comfy-org/comfyui)、
+[Dify](https://github.com/langgenius/dify) 与 [TapNow](https://tapnow.ai) 的启发。这里仅表达对其
+产品与社区工作的尊重，不代表存在官方关联或背书。
+
+项目建立在众多优秀的开源软件之上，特别感谢 [React](https://react.dev)、
+[React Flow / xyflow](https://reactflow.dev)、[NestJS](https://nestjs.com)、
+[TypeORM](https://typeorm.io)、[PostgreSQL](https://www.postgresql.org)、
+[Redis](https://redis.io)、[Vite](https://vite.dev)，以及用于官网与文档的
+[Astro](https://astro.build) / [Starlight](https://starlight.astro.build)。
+
 ## 开源与商业授权
 
 XG Canvas 的完整 Beta 代码采用 [GNU AGPL v3](./LICENSE)（`AGPL-3.0-only`）发布。AGPL 允许个人和企业使用、修改与商业部署；分发修改版或通过网络向用户提供修改后的程序时，需要遵守许可证规定的相应源码提供义务。
@@ -247,16 +306,48 @@ XG Canvas 的完整 Beta 代码采用 [GNU AGPL v3](./LICENSE)（`AGPL-3.0-only`
 - 需要保留专有修改、进行闭源集成、交付客户私有分支，或获得部署、维护与技术支持的组织，可以申请单独的商业许可证。
 - 客户专属工作流、内部节点、Provider 和业务系统集成可以通过私有分支交付。
 
-商业授权与定制合作请联系 [Liu Xiaogang](https://liuxiaogang.com)。
+商业授权、企业定制与合作请联系
+[git@liuxiaogang.com](mailto:git@liuxiaogang.com)。
 
 ## 贡献
 
 项目当前由作者个人主导开发，暂时不接受外部代码或文档 PR，只接受 Issue、问题反馈和产品建议。未经事先确认提交的 PR 暂不评审或合并。
 
-欢迎通过 [GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues) 提交使用问题、需求场景、模型适配建议和企业工作流设想。未来开放外部贡献前，项目会先发布经法律复核的贡献协议与接受流程。
+欢迎通过 [GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues) 或
+[CNB Issues](https://cnb.cool/liuxiaogang/xg-canvas/-/issues) 提交使用问题、需求场景、模型适配
+建议和企业工作流设想。未来开放外部贡献前，项目会先发布经法律复核的贡献协议与接受流程。
+
+## 内测、交流与支持
+
+### 内测微信群
+
+项目计划分批开展内测。微信群二维码有有效期，不保证 README 中的入口长期有效；群二维码
+过期、暂未展示或无法加入时，可以添加个人微信 `CN-LXG`，备注 `XG Canvas 内测`，并简单
+说明你的使用场景，申请或了解后续内测群。
+
+产品问题、Bug 和可公开讨论的需求请提交到
+[GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues) 或
+[CNB Issues](https://cnb.cool/liuxiaogang/xg-canvas/-/issues)，便于长期追踪。
+
+### 支持项目
+
+如果 XG Canvas 对你有帮助，可以自愿支持项目的持续开发。赞助不附带功能优先级、技术支持、
+商业授权或其他对价；企业服务与商业合作请通过邮箱单独联系。
+
+<img src="https://static.liuxiaogang.com/xg-canvas/readme-img/wx-zanshang.jpg" alt="微信赞赏码" width="180" />
+
+### 联系方式
+
+- 内测与微信交流：`CN-LXG`
+- 商务合作、商业授权与企业定制：[git@liuxiaogang.com](mailto:git@liuxiaogang.com)
+- 公开问题与产品建议：[GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues) / [CNB Issues](https://cnb.cool/liuxiaogang/xg-canvas/-/issues)
+- 作者网站：[liuxiaogang.com](https://liuxiaogang.com)
 
 ## 作者与品牌
 
 Created by [Liu Xiaogang / 刘小刚](https://liuxiaogang.com).
+
+项目由 LXG 维护，并在 Claude Code 与 OpenAI Codex 辅助下开发；架构决策、代码审查、测试与
+最终发布责任由维护者承担。
 
 **XG Canvas**、**西瓜画布**及相关 Logo 是项目品牌标识。软件许可证不自动授予商标或品牌使用权。

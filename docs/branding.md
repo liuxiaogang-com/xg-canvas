@@ -4,18 +4,23 @@
 
 ## 1. 标准名称
 
-| 场景          | 标准写法                  |
-| ------------- | ------------------------- |
-| 英文产品名    | **XG Canvas**             |
-| 中文产品名    | **西瓜画布**              |
-| 中英文并列    | **XG Canvas｜西瓜画布**   |
-| GitHub 用户名 | `liuxiaogang-com`         |
-| GitHub 仓库名 | `xg-canvas`               |
-| 本地项目目录  | `xg-canvas`               |
-| npm 包作用域  | `@xgcanvas`               |
-| 个人网站      | `liuxiaogang.com`         |
-| 产品网站      | `canvas.liuxiaogang.com`  |
-| 作者署名      | **Liu Xiaogang / 刘小刚** |
+| 场景          | 标准写法                                |
+| ------------- | --------------------------------------- |
+| 英文产品名    | **XG Canvas**                           |
+| 中文产品名    | **西瓜画布**                            |
+| 中英文并列    | **XG Canvas｜西瓜画布**                 |
+| GitHub 用户名 | `liuxiaogang-com`                       |
+| GitHub 仓库名 | `xg-canvas`                             |
+| GitHub 地址   | `github.com/liuxiaogang-com/xg-canvas`  |
+| CNB 地址      | `cnb.cool/liuxiaogang/xg-canvas`        |
+| CNB 镜像空间  | `docker.cnb.cool/liuxiaogang/xg-canvas` |
+| 本地项目目录  | `xg-canvas`                             |
+| npm 包作用域  | `@xgcanvas`                             |
+| 个人网站      | `liuxiaogang.com`                       |
+| 产品网站      | `canvas.liuxiaogang.com`                |
+| 作者署名      | **Liu Xiaogang / 刘小刚**               |
+| 个人微信      | `CN-LXG`                                |
+| 商务邮箱      | `git@liuxiaogang.com`                   |
 
 核心原则：面向人使用 **XG Canvas**；仓库、目录和发布物使用 `xg-canvas`；npm workspace 包统一使用 `@xgcanvas/*`。
 
@@ -65,7 +70,9 @@ xg-canvas
 
 ```text
 https://github.com/liuxiaogang-com/xg-canvas
-ghcr.io/liuxiaogang-com/xg-canvas:0.1.0
+https://cnb.cool/liuxiaogang/xg-canvas
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
 xg-canvas-v0.1.0.zip
 ```
 
@@ -190,7 +197,25 @@ XG Canvas 的完整 Beta 代码以 AGPL-3.0-only 发布；如需保留专有修�
 进行闭源集成、交付客户私有分支或获得企业支持，可申请单独的商业授权。
 ```
 
-## 9. 快速检查
+## 9. 公开入口与联系方式
+
+公开文档统一使用以下入口：
+
+- GitHub 仓库：`https://github.com/liuxiaogang-com/xg-canvas`
+- CNB 仓库与构建制品：`https://cnb.cool/liuxiaogang/xg-canvas`
+- GitHub 问题与产品建议：`https://github.com/liuxiaogang-com/xg-canvas/issues`
+- CNB 问题与产品建议：`https://cnb.cool/liuxiaogang/xg-canvas/-/issues`
+- 内测与微信交流：`CN-LXG`
+- 商业授权、企业定制与商务合作：`git@liuxiaogang.com`
+
+微信群二维码有有效期，不能作为唯一或永久入口。群二维码失效时，统一引导用户添加微信
+`CN-LXG`，备注 `XG Canvas 内测`。个人微信二维码后续可以替代纯微信号，但必须保留可复制的
+微信号作为无障碍与失效兜底。
+
+微信赞赏码使用外部 HTTPS 图片 URL，不把二维码图片提交到公开仓库。赞助文案只表述自愿
+支持项目，不承诺功能优先级、技术支持、商业授权或其他对价。
+
+## 10. 快速检查
 
 提交涉及品牌名称的改动前，确认：
 
@@ -198,5 +223,7 @@ XG Canvas 的完整 Beta 代码以 AGPL-3.0-only 发布；如需保留专有修�
 - 仓库、目录和发布文件使用 `xg-canvas`。
 - workspace 包使用 `@xgcanvas/*`。
 - GitHub 地址使用 `liuxiaogang-com/xg-canvas`。
+- CNB 地址使用 `liuxiaogang/xg-canvas`，应用镜像使用 `docker.cnb.cool/liuxiaogang/xg-canvas/*`。
 - 官网地址使用 `canvas.liuxiaogang.com`。
+- 商务邮箱使用 `git@liuxiaogang.com`，内测微信使用 `CN-LXG`。
 - 没有混入其他大小写、空格或连字符变体。

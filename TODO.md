@@ -6,7 +6,7 @@
 
 ## 公开 Beta 发布验证
 
-- [ ] 验证 CNB `main` push 的 lint、test、max-lines、全仓 build 和双镜像发布。
+- [ ] 确认 CNB `main` push 在 clean runner 通过 lint、test、max-lines、全仓 build 和双镜像发布。
 - [ ] 使用 CNB 构建的镜像完成一次空环境 `docker compose up -d` 冷启动 smoke。
 - [ ] 回放空数据库全部迁移，并验证一个旧 Beta 数据库的升级路径。
 - [ ] 跑通百炼 / DashScope 的真实生图、生视频、失败重试、资产归档和请求日志。
@@ -28,7 +28,7 @@
 - [ ] 增加上传、资源库、任务恢复和参考素材插槽的浏览器 E2E。
 - [ ] 增加任务 lease 超时、Worker 崩溃恢复和对象存储补偿删除的集成测试。
 - [ ] 补齐安装、Provider 配置、首个工作流、升级备份和故障排查文档。
-- [ ] 建立版本 Tag、变更日志和可回滚镜像发布流程。
+- [ ] 建立正式版本发布、变更日志和升级失败后的恢复流程。
 
 ## 约束
 

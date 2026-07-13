@@ -26,16 +26,27 @@ canvas-web → canvas-api → 厂商 HTTP API / Dreamina CLI
 
 ## 使用发布镜像
 
-仓库根目录的 `docker-compose.yml` 已固定公开 CNB 应用镜像，并集成 PostgreSQL 18 与
-Redis 8。无需创建 `.env`，直接运行：
+仓库根目录的 `docker-compose.yml` 默认使用公开 CNB 应用镜像，并集成 PostgreSQL 18 与
+Redis 8：
+
+```text
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
+```
+
+无需创建 `.env`，首次部署或更新时运行：
 
 ```bash
+docker compose pull
 docker compose up -d
 ```
 
 部署编排只暴露 Web 端口，会先等待数据库健康并执行追加式迁移，再启动 API 与 Web。根密钥
-自动生成并持久化；对象存储和 Provider 凭证在首次登录后的 `/settings` 中配置。CNB 只发布
-`latest`，更新时应先备份，再运行 `docker compose pull && docker compose up -d`。
+自动生成并持久化；对象存储和 Provider 凭证在首次登录后的 `/settings` 中配置。Compose 对
+`latest` 应用镜像设置了 `pull_policy: always`，部署时仍建议显式执行上述 `pull` 命令。
+
+[CNB 构建流水线](https://cnb.cool/liuxiaogang/xg-canvas)生成公开应用镜像，正式部署目前统一使用
+持续更新的 `latest` 标签。当前只构建 `linux/amd64`，ARM 设备尚未完成兼容验证。
 
 无 Token 初始化采用 TOFU：首个成功请求成为实例 Owner。因此未初始化实例不能先暴露到
 不可信公网。完成后初始化状态永久落库，重启不会重新开放入口。

@@ -226,12 +226,25 @@ readiness；当前 `EmailSenderService` 仍从上述环境变量读取真实发�
 
 ## 10. 部署
 
-`docker-compose.yml` 是零配置生产部署文件，从公开 CNB 制品库拉取 `canvas-web`、
-`canvas-api` 的 `latest` 镜像，并使用 Docker Hub 官方 PostgreSQL 18、Redis 8 镜像集成数据库
-与缓存迁移。无需 `.env`；
-宿主机只暴露 Web 端口，内部数据库账号只用于隔离的 Compose 网络。应用镜像保留
-`pull_policy: always`，确保重新部署会拉取最新制品。对象存储仍使用管理员在后台配置的
-远程 S3/R2 兼容桶。
+公开代码与构建入口：
+
+- GitHub：[`github.com/liuxiaogang-com/xg-canvas`](https://github.com/liuxiaogang-com/xg-canvas)
+- CNB：[`cnb.cool/liuxiaogang/xg-canvas`](https://cnb.cool/liuxiaogang/xg-canvas)
+
+`docker-compose.yml` 是零配置生产部署文件。它不从 GitHub Container Registry 构建或拉取
+应用，而是默认直接使用 CNB `main` 流水线发布的公开镜像：
+
+```text
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest
+docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
+```
+
+公开部署目前统一使用持续更新的 `latest` 标签。当前应用镜像只构建 `linux/amd64`，ARM 设备
+尚未完成兼容验证。应用镜像保留 `pull_policy: always`，确保重新部署会检查并拉取最新制品。
+
+正式编排同时使用 Docker Hub 官方 PostgreSQL 18、Redis 8 镜像集成数据库、缓存与迁移。
+无需 `.env` 即可启动；宿主机只暴露 Web 端口，内部数据库账号只用于隔离的 Compose 网络。
+对象存储仍使用管理员在后台配置的远程 S3/R2 兼容桶。
 
 PostgreSQL 18 数据卷挂载在 `/var/lib/postgresql`。旧 PostgreSQL 16 volume 不能直接挂给
 PostgreSQL 18；已有部署升级时必须先备份，再通过 dump/restore 迁移。

@@ -5,9 +5,11 @@ production platform for enterprise teams.
 
 > **Contribution status:** XG Canvas is currently developed and maintained by its
 > author. External code and documentation pull requests are not accepted at this
-> stage. Please use GitHub Issues for bug reports, product feedback, deployment
-> experience, and feature suggestions. Unsolicited pull requests will not be reviewed
-> or merged unless a maintainer has explicitly requested the change in advance.
+> stage. Please use [GitHub Issues](https://github.com/liuxiaogang-com/xg-canvas/issues)
+> or [CNB Issues](https://cnb.cool/liuxiaogang/xg-canvas/-/issues) for bug reports,
+> product feedback, deployment experience, and feature suggestions. Unsolicited pull
+> requests will not be reviewed or merged unless a maintainer has explicitly requested
+> the change in advance.
 
 The project is currently in **Beta**. Product behavior, configuration, APIs, and
 extension contracts may still change before the first stable release.
