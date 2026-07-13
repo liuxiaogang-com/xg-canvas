@@ -36,3 +36,6 @@ credentials/
 # ad-hoc local scratch (curl cookie jars / token dumps)
 /j*.txt
 *.jar
+
+# Local standalone website workspace
+/web-site/

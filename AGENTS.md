@@ -127,6 +127,8 @@ docker compose up -d
 
 - 每个独立功能或 roadmap 切片一 commit
 - 主干 `main` 始终可运行
+- Git commit 使用当前操作者自行配置的人类 Git 身份；不得自动修改 `user.name` / `user.email`，也不得冒用其他人的身份。
+- commit 标题、正文和 trailer 不写 Claude、Codex 或其他 AI 工具，不添加 AI `Co-authored-by` 或 `Generated with`。
 
 ## Codex 自动化约定
 
