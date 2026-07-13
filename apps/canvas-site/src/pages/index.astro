@@ -1,0 +1,202 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import '../styles/home.css';
+import '../styles/home-sections.css';
+
+const workflow = [
+  ['故事与脚本', '从想法、脚本或提示词开始，保留创作上下文。'],
+  ['角色与场景', '抽取并沉淀角色、场景、道具等可复用实体。'],
+  ['结构化分镜', '在画布与分镜表格之间切换，批量调整内容。'],
+  ['多模型生成', '通过配置的 Adapter 调用文本、图像和视频模型。'],
+  ['资产与治理', '把结果归档到自己的存储，并留下权限、任务与成本上下文。'],
+];
+
+const capabilities = [
+  ['项目与节点画布', '围绕项目组织画布、节点、连线、快照和成员，让创作上下文持续沉淀。', '已实现'],
+  ['剧本与分镜', '从剧本抽取实体，生成结构化分镜，在表格中批量编辑与重新生成。', 'Beta'],
+  ['模型与凭证治理', '集中管理 Provider、渠道、加密凭证和模型，为不同功能配置候选模型。', 'Beta'],
+  ['持久任务与自有资产', '任务排队、取消、重试与错误留痕，结果归档到企业配置的 S3 / R2。', '已实现'],
+  ['团队权限', '单租户多用户、系统级与项目级 RBAC，覆盖管理员、成员和只读访问。', '已实现'],
+  ['调用与成本观测', '记录模型请求、延迟、用量和错误，并按模型、成员与项目聚合历史成本。', '已实现'],
+];
+
+const providers = ['OpenAI-compatible', 'Bailian DashScope', 'Doubao', 'Dreamina CLI', 'S3 / R2'];
+---
+
+<MarketingLayout
+  title="XG Canvas｜西瓜画布"
+  description="面向企业创意团队的开源、自托管 AI 创意生产平台。把项目、脚本、模型、生成任务和资产收进企业自己的画布。"
+>
+  <section class="hero">
+    <div class="shell hero__layout">
+      <div class="hero__copy">
+        <div class="hero__badge">AGPL-3.0 · Self-hosted · Beta</div>
+        <h1 class="display-title gradient-text">企业自己的<br />AI 创意生产画布。</h1>
+        <p class="hero__description">
+          XG Canvas（西瓜画布）面向品牌、营销、影视、内容制作与创意技术团队。企业连接自己的模型账号与存储，成员用各自账户在统一权限下协作，把真实调用成本、创作流程和最终资产留在自己的系统里。
+        </p>
+        <div class="hero__actions">
+          <a class="button button--primary" href="/docs/getting-started/install/">开始部署</a>
+          <a class="button" href="https://github.com/liuxiaogang-com/xg-canvas">查看源码</a>
+        </div>
+        <p class="hero__note">AGPL-3.0-only · 当前为 Beta · 实际可用模型取决于部署配置、厂商凭证与 Adapter 状态</p>
+      </div>
+
+      <div class="canvas-preview glass" aria-label="XG Canvas 产品画布概念预览">
+        <div class="canvas-preview__top">
+          <strong>Brand Film / Canvas 01</strong>
+          <span>Autosaved</span>
+        </div>
+        <svg class="canvas-preview__wires" viewBox="0 0 680 570" aria-hidden="true">
+          <defs>
+            <linearGradient id="wire" x1="0" x2="1">
+              <stop stop-color="#2dd4bf" stop-opacity=".72" />
+              <stop offset="1" stop-color="#38bdf8" stop-opacity=".42" />
+            </linearGradient>
+          </defs>
+          <path d="M210 176 C300 176 270 315 356 315" fill="none" stroke="url(#wire)" stroke-width="2" />
+          <path d="M404 315 C474 315 472 172 528 172" fill="none" stroke="url(#wire)" stroke-width="2" />
+          <path d="M556 220 C556 312 548 345 544 370" fill="none" stroke="url(#wire)" stroke-width="2" />
+        </svg>
+        <article class="canvas-node canvas-node--script">
+          <p class="canvas-node__type">Script</p>
+          <h3>夜航计划</h3>
+          <p>提取角色、场景与视觉线索</p>
+        </article>
+        <article class="canvas-node canvas-node--entity">
+          <p class="canvas-node__type">Entity Set</p>
+          <h3>3 个角色 · 5 个场景</h3>
+          <p>在项目内持续复用创作资产</p>
+        </article>
+        <article class="canvas-node canvas-node--storyboard">
+          <div class="canvas-node__media"></div>
+          <p class="canvas-node__type">Storyboard</p>
+          <h3>镜头 08 · 天台远景</h3>
+        </article>
+        <article class="canvas-node canvas-node--video">
+          <div class="canvas-node__media"></div>
+          <p class="canvas-node__type">Video Task</p>
+          <h3>生成中 · 68%</h3>
+        </article>
+        <div class="canvas-preview__dock"><span>Canvas</span><span>Storyboard</span><span>Assets</span><span>Tasks</span></div>
+        <div class="canvas-preview__status">● 3 tasks running</div>
+      </div>
+    </div>
+
+    <div class="shell signal-bar" aria-label="产品特性摘要">
+      <span>BRING YOUR OWN KEY</span><span>DIRECT API COST</span><span>SELF-HOSTED</span><span>CUSTOM WORKFLOWS</span>
+    </div>
+  </section>
+
+  <hr class="section-rule" />
+
+  <section class="section" id="workflow">
+    <div class="shell">
+      <p class="eyebrow">One creative context</p>
+      <h2 class="section-title">不按创作席位囤额度，按实际模型调用组织生产。</h2>
+      <p class="section-lead">管理员连接企业自己的模型凭证，成员无需共享厂商账号或接触原始 Key。旺季按需生成，淡季不必为闲置的平台额度持续投入；基础设施和厂商 API 费用仍由部署方承担。</p>
+      <div class="workflow">
+        {workflow.map(([title, description], index) => (
+          <article class="workflow__step">
+            <span class="workflow__index">0{index + 1}</span>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="capabilities">
+    <div class="shell">
+      <div class="section-heading--split">
+        <div>
+          <p class="eyebrow">Built for real workflows</p>
+          <h2 class="section-title">不止生成一次，更要管理整个创意生产过程。</h2>
+        </div>
+        <p class="section-lead">当前能力按真实代码状态标注。Beta 功能仍可能调整，Roadmap 中的内容不会提前算作已完成。</p>
+      </div>
+      <div class="capabilities">
+        {capabilities.map(([title, description, status], index) => (
+          <article class="capability">
+            <span class="capability__index">0{index + 1}</span>
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <span class:list={['status-tag', { 'status-tag--beta': status === 'Beta' }]}>{status}</span>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-rule" />
+
+  <section class="section">
+    <div class="shell control-plane">
+      <div>
+        <p class="eyebrow">Control plane</p>
+        <h2 class="section-title">模型账号属于企业，成员不需要共享登录。</h2>
+        <p class="section-lead">管理员集中管理 Provider、渠道、加密凭证和模型，成员只获得可用模型与项目权限。调用直接进入企业自己的供应商账户，任务、资产、日志和成本进入自己的基础设施。</p>
+        <ol class="enterprise-list">
+          <li><span>01</span>每位成员使用独立账户，不共享厂商登录和原始密钥。</li>
+          <li><span>02</span>模型请求、用量和成本归属到成员、项目与模型。</li>
+          <li><span>03</span>工作流、节点、Adapter 和业务集成可以按需扩展。</li>
+        </ol>
+      </div>
+      <div class="control-plane__visual glass" aria-label="模型治理界面概念预览">
+        <div class="control-plane__header"><span>Model registry</span><span class="control-plane__live">● Runtime synced</span></div>
+        <div class="control-plane__rows">
+          <div class="control-plane__row"><strong>Bailian DashScope</strong><span>Image · Video</span><em>Enabled</em></div>
+          <div class="control-plane__row"><strong>OpenAI-compatible</strong><span>Text · Stream</span><em>Enabled</em></div>
+          <div class="control-plane__row"><strong>Doubao</strong><span>Image · Video</span><em>Enabled</em></div>
+          <div class="control-plane__row"><strong>Dreamina CLI</strong><span>Local bridge</span><em>Ready</em></div>
+        </div>
+        <div class="control-plane__metrics">
+          <div class="control-plane__metric"><strong>AES</strong><span>Credentials</span></div>
+          <div class="control-plane__metric"><strong>RBAC</strong><span>Access</span></div>
+          <div class="control-plane__metric"><strong>S3</strong><span>Assets</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shell provider-stream"><div class="provider-stream__inner">{providers.map((provider) => <span>{provider}</span>)}</div></div>
+  </section>
+
+  <section class="section" id="open-source">
+    <div class="shell open-source glass">
+      <div class="open-source__inner">
+        <div>
+          <p class="eyebrow">One product, two licensing paths</p>
+          <h2 class="section-title">同一套完整代码，两种授权路径。</h2>
+          <p class="section-lead">完整 Beta 代码以 AGPL-3.0-only 发布。遵守 AGPL 的团队可以自行部署、修改和扩展；需要保留专有修改、闭源集成、交付客户私有分支或获得企业支持时，可以申请单独的商业授权。</p>
+          <div class="open-source__actions">
+            <a class="button button--primary" href="/docs/getting-started/install/">阅读安装文档</a>
+            <a class="button" href="/docs/developer/extensions/">查看扩展方式</a>
+            <a class="button" href="https://liuxiaogang.com">商业授权与定制</a>
+          </div>
+        </div>
+        <div class="open-source__code">
+          <header>LOCAL DEVELOPMENT</header>
+          <pre><code>docker compose -f docker-compose.dev.yml \
+  up --build
+# 打开 localhost:5180 完成首次初始化</code></pre>
+        </div>
+      </div>
+    </div>
+    <div class="shell roadmap-note">
+      <p>音频与转写 Adapter、实时多人协作、流式 Agent 工具循环、多租户和生产级高可用仍在 Roadmap 中。</p>
+      <span>PLANNED, NOT SHIPPED</span>
+    </div>
+  </section>
+
+  <section class="final-cta">
+    <div class="shell">
+      <p class="eyebrow">Start with the source</p>
+      <h2 class="section-title">先在自己的基础设施里跑起来，再把它变成团队真正使用的生产流程。</h2>
+      <p class="section-lead">从安装文档开始，配置 PostgreSQL、Redis、远程 S3/R2 和第一个模型渠道。当前仍是 Beta，请从非关键业务和试点团队开始。</p>
+      <div class="hero__actions">
+        <a class="button button--primary" href="/docs/getting-started/install/">开始安装</a>
+        <a class="button" href="/docs/">浏览文档</a>
+      </div>
+    </div>
+  </section>
+</MarketingLayout>

@@ -1,0 +1,93 @@
+name: xgcanvas
+
+# 零配置部署栈：CNB 应用镜像 + PostgreSQL 18 + Redis 8。
+# PostgreSQL、Redis 和 API 均不映射宿主机端口，避免与 NAS/电脑已有服务冲突。
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18-alpine}
+    pull_policy: missing
+    environment:
+      POSTGRES_USER: xgcanvas
+      POSTGRES_PASSWORD: xgcanvas-internal-only
+      POSTGRES_DB: xgcanvas
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xgcanvas -d xgcanvas"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:8-alpine}
+    pull_policy: missing
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    image: ${CANVAS_API_IMAGE:-docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest}
+    pull_policy: always
+    environment:
+      DATABASE_URL: postgresql://xgcanvas:xgcanvas-internal-only@postgres:5432/xgcanvas
+    command: pnpm db:migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  canvas-api:
+    image: ${CANVAS_API_IMAGE:-docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest}
+    pull_policy: always
+    environment:
+      PORT: "5181"
+      NODE_ENV: production
+      DATABASE_URL: postgresql://xgcanvas:xgcanvas-internal-only@postgres:5432/xgcanvas
+      REDIS_URL: redis://redis:6379
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
+      DEMO_MODE: "${DEMO_MODE:-false}"
+      DREAMINA_CLI_PATH: /usr/local/bin/dreamina
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5181/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - dreamina-data:/root/.dreamina_cli
+      - dreamina-share-data:/root/.local/share/dreamina
+      - encryption-data:/var/lib/xgcanvas/secrets
+
+  canvas-web:
+    image: ${CANVAS_WEB_IMAGE:-docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest}
+    pull_policy: always
+    ports:
+      - "${CANVAS_WEB_PORT:-5180}:80"
+    depends_on:
+      canvas-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  postgres-data:
+  redis-data:
+  dreamina-data:
+  dreamina-share-data:
+  encryption-data:

@@ -1,0 +1,231 @@
+version: "1.0"
+
+provider:
+  slug: dreamina
+  display_name: "即梦 (Dreamina)"
+  icon_url: "/icons/dreamina.svg"
+  homepage_url: "https://www.dreamina.ai"
+  auth_method: cli_login
+  adapter_keys: ["dreamina-cli"]
+  default_invocation_method: cli
+  supported_regions: ["cn"]
+  description: "抖音即梦 CLI 生图/视频，需高级及以上会员"
+
+channels:
+  - slug: dreamina-cli
+    display_name: "即梦 CLI"
+    invocation_method: cli
+    concurrent_limit: 5
+
+# Models derived from dreamina CLI v1.4.10 --help output (2026-06-26).
+# auth_method=cli_login means no API key: login is OAuth Device Flow via browser.
+# All generation is async (submit → poll). Credits are consumed per task.
+models:
+  - model_id: "dreamina:text2image"
+    provider_model_id: "text2image"
+    display_name: "即梦文生图"
+    description: "文本生成图片，支持 3.0-5.0 多代模型，1-10 张批量"
+    task_types: [gen.image]
+    capabilities: [image_gen]
+    invocation_mode: async
+    tags: ["图片", "文生图"]
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+    param_schema:
+      prompt: { kind: text, required: true, zone: center }
+      ratio: { kind: enum, values: ["21:9","16:9","3:2","4:3","1:1","3:4","2:3","9:16"], default: "1:1", zone: bottom }
+      model_version:
+        kind: enum
+        values:
+          - { value: "3.0", label: "Seedream 3.0" }
+          - { value: "3.1", label: "Seedream 3.1" }
+          - { value: "4.0", label: "Seedream 4.0" }
+          - { value: "4.1", label: "Seedream 4.1" }
+          - { value: "4.5", label: "Seedream 4.5" }
+          - { value: "4.6", label: "Seedream 4.6" }
+          - { value: "4.7", label: "Seedream 4.7" }
+          - { value: "5.0", label: "Seedream 5.0" }
+        default: "5.0"
+        zone: bottom
+
+  - model_id: "dreamina:image2image"
+    provider_model_id: "image2image"
+    display_name: "即梦图生图"
+    description: "参考图片编辑，支持 4.0-5.0 模型，1-10 张输入"
+    task_types: [gen.image]
+    capabilities: [image_gen, image_ref]
+    invocation_mode: async
+    tags: ["图片", "图生图"]
+    input_contract:
+      default_mode: image_to_image
+      modes:
+        - id: image_to_image
+          label: 图生图
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 10, library: { kinds: [character, style], forms: [material] } }
+    param_schema:
+      prompt: { kind: text, required: true, zone: center }
+      ratio: { kind: enum, values: ["21:9","16:9","3:2","4:3","1:1","3:4","2:3","9:16"], default: "1:1", zone: bottom }
+      model_version:
+        kind: enum
+        values:
+          - { value: "4.0", label: "Seedream 4.0" }
+          - { value: "4.1", label: "Seedream 4.1" }
+          - { value: "4.5", label: "Seedream 4.5" }
+          - { value: "4.6", label: "Seedream 4.6" }
+          - { value: "4.7", label: "Seedream 4.7" }
+          - { value: "5.0", label: "Seedream 5.0" }
+        default: "5.0"
+        zone: bottom
+
+  - model_id: "dreamina:image_upscale"
+    provider_model_id: "image_upscale"
+    display_name: "即梦图片超清"
+    description: "图片分辨率提升，2k 免费，4k/8k 需 VIP"
+    task_types: [image.upscale]
+    capabilities: []
+    invocation_mode: async
+    tags: ["图片", "超清"]
+    param_schema:
+      image: { kind: image, required: true, zone: center }
+      resolution_type: { kind: enum, values: ["2k","4k","8k"], default: "2k", zone: bottom }
+
+  - model_id: "dreamina:text2video"
+    provider_model_id: "text2video"
+    display_name: "即梦文生视频"
+    description: "文本生成视频，Seedance 2.0 旗舰，4-15 秒"
+    task_types: [gen.video]
+    capabilities: []
+    invocation_mode: async
+    tags: ["视频", "文生视频"]
+    input_contract:
+      default_mode: text_to_video
+      modes:
+        - id: text_to_video
+          label: 文生视频
+    param_schema:
+      prompt: { kind: text, required: true, zone: center }
+      duration: { kind: range, min: 4, max: 15, default: 5, zone: bottom }
+      ratio: { kind: enum, values: ["1:1","3:4","16:9","4:3","9:16","21:9"], default: "16:9", zone: bottom }
+      model_version:
+        kind: enum
+        values:
+          - { value: "seedance2.0", label: "Seedance 2.0" }
+          - { value: "seedance2.0fast", label: "Seedance 2.0 Fast" }
+          - { value: "seedance2.0_vip", label: "Seedance 2.0 VIP" }
+          - { value: "seedance2.0fast_vip", label: "Seedance 2.0 Fast VIP" }
+          - { value: "seedance2.0mini", label: "Seedance 2.0 Mini" }
+        default: "seedance2.0fast"
+        zone: bottom
+
+  - model_id: "dreamina:image2video"
+    provider_model_id: "image2video"
+    display_name: "即梦图生视频"
+    description: "单张图片生成视频动画"
+    task_types: [gen.video]
+    capabilities: [image_ref]
+    invocation_mode: async
+    tags: ["视频", "图生视频"]
+    input_contract:
+      default_mode: image_to_video
+      modes:
+        - id: image_to_video
+          label: 图生视频
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 1, library: { kinds: [character, style], forms: [material] } }
+    param_schema:
+      prompt: { kind: text, required: true, zone: center }
+      duration: { kind: range, min: 4, max: 15, default: 5, zone: bottom }
+      model_version:
+        kind: enum
+        values:
+          - { value: "seedance1.0fast", label: "Seedance 1.0 Fast" }
+          - { value: "seedance1.0", label: "Seedance 1.0" }
+          - { value: "seedance1.5pro", label: "Seedance 1.5 Pro" }
+          - { value: "seedance2.0", label: "Seedance 2.0" }
+          - { value: "seedance2.0fast", label: "Seedance 2.0 Fast" }
+          - { value: "seedance2.0_vip", label: "Seedance 2.0 VIP" }
+          - { value: "seedance2.0fast_vip", label: "Seedance 2.0 Fast VIP" }
+          - { value: "seedance2.0mini", label: "Seedance 2.0 Mini" }
+        default: "seedance2.0fast"
+        zone: bottom
+
+  - model_id: "dreamina:frames2video"
+    provider_model_id: "frames2video"
+    display_name: "即梦首尾帧视频"
+    description: "首帧+尾帧驱动的视频生成"
+    task_types: [gen.video]
+    capabilities: [first_last_frame]
+    invocation_mode: async
+    tags: ["视频", "首尾帧"]
+    input_contract:
+      default_mode: first_last_frame
+      modes:
+        - id: first_last_frame
+          label: 首尾帧
+          required_slots:
+            - { slot: first_frame, type: image, min: 1, max: 1 }
+            - { slot: last_frame, type: image, min: 1, max: 1 }
+    param_schema:
+      prompt: { kind: text, required: true, zone: center }
+      duration: { kind: range, min: 4, max: 15, default: 5, zone: bottom }
+      model_version:
+        kind: enum
+        values:
+          - { value: "seedance1.5pro", label: "Seedance 1.5 Pro" }
+          - { value: "seedance2.0", label: "Seedance 2.0" }
+          - { value: "seedance2.0fast", label: "Seedance 2.0 Fast" }
+          - { value: "seedance2.0_vip", label: "Seedance 2.0 VIP" }
+          - { value: "seedance2.0fast_vip", label: "Seedance 2.0 Fast VIP" }
+          - { value: "seedance2.0mini", label: "Seedance 2.0 Mini" }
+        default: "seedance2.0_vip"
+        zone: bottom
+
+  - model_id: "dreamina:multimodal2video"
+    provider_model_id: "multimodal2video"
+    display_name: "即梦全能参考视频"
+    description: "多模态混合参考视频生成（全能参考），支持图片+视频+音频"
+    task_types: [gen.video]
+    capabilities: [image_ref, multi_reference]
+    invocation_mode: async
+    tags: ["视频", "全能参考"]
+    input_contract:
+      default_mode: reference_to_video
+      modes:
+        - id: reference_to_video
+          label: 全能参考
+          required_slots:
+            - { slot: reference_image, type: image, min: 1, max: 9, library: { kinds: [character, style], forms: [material] } }
+          optional_slots:
+            - { slot: source_video, type: video, max: 3 }
+            - { slot: driving_audio, type: audio, max: 3, library: { kinds: [voice], forms: [material] } }
+        - id: audio_driven_video
+          label: 音频参考
+          required_slots:
+            - { slot: reference_image, type: image, min: 1, max: 9, library: { kinds: [character, style], forms: [material] } }
+            - { slot: driving_audio, type: audio, min: 1, max: 3, library: { kinds: [voice], forms: [material] } }
+    param_schema:
+      prompt: { kind: text, required: false, zone: center }
+      duration: { kind: range, min: 4, max: 15, default: 5, zone: bottom }
+      ratio: { kind: enum, values: ["1:1","3:4","16:9","4:3","9:16","21:9"], default: "16:9", zone: bottom }
+      video_resolution:
+        kind: enum
+        values:
+          - { value: "720p", label: "720p" }
+          - { value: "1080p", label: "1080p" }
+          - { value: "4k", label: "4K" }
+        default: "720p"
+        zone: bottom
+      model_version:
+        kind: enum
+        values:
+          - { value: "seedance2.0", label: "Seedance 2.0" }
+          - { value: "seedance2.0fast", label: "Seedance 2.0 Fast" }
+          - { value: "seedance2.0_vip", label: "Seedance 2.0 VIP" }
+          - { value: "seedance2.0fast_vip", label: "Seedance 2.0 Fast VIP" }
+          - { value: "seedance2.0mini", label: "Seedance 2.0 Mini" }
+        default: "seedance2.0fast"
+        zone: bottom

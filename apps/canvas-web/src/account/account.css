@@ -1,0 +1,2 @@
+/* Reuse the settings layout primitives (.set-root/.set-tabs/.set-tab/.set-outlet). */
+@import '../settings/settings.css';

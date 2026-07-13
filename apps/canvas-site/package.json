@@ -1,0 +1,24 @@
+{
+  "name": "@xgcanvas/canvas-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "XG Canvas product website and public documentation.",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0",
+    "build": "astro check && astro build",
+    "check": "astro check",
+    "preview": "astro preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.41.3",
+    "astro": "7.0.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.9",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

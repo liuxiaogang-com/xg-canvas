@@ -1,0 +1,118 @@
+version: "1.0"
+template_id: video-generation
+display_name: "视频生成基础参数"
+
+schema:
+  groups:
+    - id: input
+      label: "输入"
+      fields: [prompt, negative_prompt]
+      ui_zone: main_input
+
+    - id: generation
+      label: "生成设置"
+      fields: [aspect_ratio, duration, fps, resolution]
+      ui_zone: params
+
+    - id: advanced
+      label: "高级"
+      fields: [seed, cfg_scale, motion_strength]
+      collapsed: true
+      ui_zone: advanced
+
+  properties:
+    prompt:
+      type: text
+      label: "提示词"
+      placeholder: "描述你想生成的视频内容..."
+      max_length: 2000
+      ui_width: full
+      ui_component: prompt_editor
+
+    negative_prompt:
+      type: text
+      label: "反向提示词"
+      placeholder: "不想出现的内容..."
+      max_length: 500
+      ui_width: full
+      ui_hidden: true
+
+    aspect_ratio:
+      type: enum
+      label: "宽高比"
+      enum_options:
+        - { value: "16:9", label: "16:9 横屏", icon: "landscape" }
+        - { value: "9:16", label: "9:16 竖屏", icon: "portrait" }
+        - { value: "1:1", label: "1:1 方形", icon: "square" }
+        - { value: "4:3", label: "4:3", icon: "landscape" }
+        - { value: "3:4", label: "3:4", icon: "portrait" }
+      default: "16:9"
+      ui_component: aspect_ratio_picker
+      ui_width: full
+
+    duration:
+      type: number
+      label: "时长（秒）"
+      min: 1
+      max: 60
+      step: 1
+      default: 5
+      ui_width: half
+
+    fps:
+      type: integer
+      label: "帧率"
+      min: 8
+      max: 60
+      step: 1
+      default: 24
+      ui_component: slider
+      ui_width: half
+
+    resolution:
+      type: enum
+      label: "分辨率"
+      enum_options:
+        - { value: "720p", label: "720p" }
+        - { value: "1080p", label: "1080p" }
+        - { value: "4k", label: "4K" }
+      default: "1080p"
+      ui_width: half
+
+    seed:
+      type: integer
+      label: "随机种子"
+      min: -1
+      max: 2147483647
+      default: -1
+      description: "-1 表示随机"
+      ui_component: seed_input
+
+    cfg_scale:
+      type: slider
+      label: "引导系数"
+      min: 1
+      max: 20
+      step: 0.5
+      default: 7
+      ui_width: half
+
+    motion_strength:
+      type: slider
+      label: "运动强度"
+      description: "控制视频中运动的幅度"
+      min: 0
+      max: 1
+      step: 0.05
+      default: 0.5
+      ui_width: half
+
+  required: [prompt]
+  defaults:
+    aspect_ratio: "16:9"
+    duration: 5
+    fps: 24
+    resolution: "1080p"
+    seed: -1
+    cfg_scale: 7
+    motion_strength: 0.5

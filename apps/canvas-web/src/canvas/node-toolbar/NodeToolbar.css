@@ -1,0 +1,75 @@
+/* NodeToolbar — floating glass pill positioned above the selected node. */
+
+.node-toolbar {
+  position: absolute;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(10, 12, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  pointer-events: auto;
+  /* Animate on appearance */
+  animation: nodeToolbarIn 140ms ease-out;
+}
+
+@keyframes nodeToolbarIn {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 18px)); }
+  to   { opacity: 1; }
+}
+
+.node-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-canvas-text-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.node-toolbar__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--color-canvas-text);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.node-toolbar__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.node-toolbar__btn--primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  border-color: transparent;
+}
+
+.node-toolbar__btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.node-toolbar__btn--edit {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--color-canvas-text);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.node-toolbar__icon {
+  font-size: 13px;
+}

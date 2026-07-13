@@ -1,0 +1,109 @@
+version: "1.0"
+template_id: text-generation
+display_name: "文本生成基础参数"
+
+schema:
+  groups:
+    - id: input
+      label: "输入"
+      fields: [prompt, system_prompt]
+      ui_zone: main_input
+
+    - id: params
+      label: "生成参数"
+      fields: [temperature, max_tokens, top_p]
+      ui_zone: params
+
+    - id: advanced
+      label: "高级"
+      fields: [frequency_penalty, presence_penalty, stop_sequences, seed]
+      collapsed: true
+      ui_zone: advanced
+
+  properties:
+    prompt:
+      type: text
+      label: "提示词"
+      placeholder: "输入你的提示词..."
+      max_length: 100000
+      ui_width: full
+      ui_component: prompt_editor
+
+    system_prompt:
+      type: text
+      label: "系统提示词"
+      placeholder: "设定 AI 的角色和行为..."
+      max_length: 10000
+      ui_width: full
+      ui_hidden: true
+
+    temperature:
+      type: slider
+      label: "温度"
+      description: "控制生成的随机性，越高越有创意，越低越确定"
+      min: 0
+      max: 2
+      step: 0.1
+      default: 0.7
+      ui_width: half
+
+    max_tokens:
+      type: integer
+      label: "最大 Token 数"
+      description: "生成文本的最大长度"
+      min: 1
+      max: 128000
+      default: 4096
+      ui_width: half
+
+    top_p:
+      type: slider
+      label: "Top P"
+      description: "核采样参数，与温度二选一调整"
+      min: 0
+      max: 1
+      step: 0.05
+      default: 1
+      ui_width: half
+
+    frequency_penalty:
+      type: slider
+      label: "频率惩罚"
+      description: "降低重复词汇的概率"
+      min: -2
+      max: 2
+      step: 0.1
+      default: 0
+
+    presence_penalty:
+      type: slider
+      label: "存在惩罚"
+      description: "鼓励模型谈论新主题"
+      min: -2
+      max: 2
+      step: 0.1
+      default: 0
+
+    stop_sequences:
+      type: string
+      label: "停止序列"
+      description: "遇到这些字符串时停止生成，用逗号分隔"
+      placeholder: "\\n, ###, END"
+
+    seed:
+      type: integer
+      label: "随机种子"
+      min: -1
+      max: 2147483647
+      default: -1
+      description: "-1 表示随机"
+      ui_component: seed_input
+
+  required: [prompt]
+  defaults:
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 1
+    frequency_penalty: 0
+    presence_penalty: 0
+    seed: -1

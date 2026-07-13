@@ -1,0 +1,88 @@
+import type { Config } from 'tailwindcss';
+
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        accent: 'var(--c-accent)',
+        'accent-hover': 'var(--c-accent-hover)',
+        'accent-soft': 'var(--c-accent-soft)',
+        cyan: 'var(--c-cyan)',
+        pink: 'var(--c-pink)',
+        canvas: {
+          app: 'var(--c-bg-app)',
+          base: 'var(--c-bg-canvas)',
+          card: 'var(--c-canvas-card)',
+          panel: 'var(--c-canvas-panel)',
+          'panel-2': 'var(--c-canvas-panel-2)',
+          border: 'var(--c-canvas-border)',
+          'border-soft': 'var(--c-canvas-border-soft)',
+        },
+        glass: {
+          DEFAULT: 'var(--c-glass)',
+          stroke: 'var(--c-glass-stroke)',
+        },
+        text: {
+          1: 'var(--c-text-on-dark-1)',
+          2: 'var(--c-text-on-dark-2)',
+          3: 'var(--c-text-on-dark-3)',
+          4: 'var(--c-text-on-dark-4)',
+        },
+        port: {
+          text: 'var(--c-port-text)',
+          image: 'var(--c-port-image)',
+          'image-list': 'var(--c-port-image-list)',
+          grid: 'var(--c-port-grid)',
+          video: 'var(--c-port-video)',
+          audio: 'var(--c-port-audio)',
+          json: 'var(--c-port-json)',
+          reference: 'var(--c-port-reference)',
+          mask: 'var(--c-port-mask)',
+          style: 'var(--c-port-style)',
+          entity: 'var(--c-port-entity)',
+        },
+        success: 'var(--c-success)',
+        warning: 'var(--c-warning)',
+        danger: 'var(--c-danger)',
+        info: 'var(--c-info)',
+      },
+      borderRadius: {
+        xs: 'var(--r-xs)',
+        sm: 'var(--r-sm)',
+        md: 'var(--r-md)',
+        lg: 'var(--r-lg)',
+        xl: 'var(--r-xl)',
+        '2xl': 'var(--r-2xl)',
+        full: '9999px',
+      },
+      spacing: {
+        1: 'var(--s-1)',
+        2: 'var(--s-2)',
+        3: 'var(--s-3)',
+        4: 'var(--s-4)',
+        5: 'var(--s-5)',
+        6: 'var(--s-6)',
+        8: 'var(--s-8)',
+        10: 'var(--s-10)',
+        12: 'var(--s-12)',
+      },
+      fontFamily: {
+        sans: 'var(--font-sans)',
+        mono: 'var(--font-mono)',
+      },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        glow: 'var(--shadow-glow-accent)',
+        'glow-cyan': 'var(--shadow-glow-cyan)',
+      },
+      backgroundImage: {
+        'gradient-aurora': 'var(--gradient-aurora)',
+      },
+    },
+  },
+  plugins: [],
+} satisfies Config;

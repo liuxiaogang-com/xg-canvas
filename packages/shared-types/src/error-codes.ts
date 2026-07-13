@@ -1,0 +1,72 @@
+/**
+ * Unified error codes across canvas-api and account runtime services.
+ * Spec: docs/api-conventions.md.
+ *
+ * Vendor errors are mapped into one of these by adapters' error-mapper.
+ * Anything not mapped becomes ADAPTER_INTERNAL.
+ */
+
+export const ERROR_CODES = {
+  // 4xx - caller fault
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  CONSTRAINT_VIOLATION: 'CONSTRAINT_VIOLATION',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  RATE_LIMITED: 'RATE_LIMITED',
+
+  // task / invocation
+  TASK_NOT_FOUND: 'TASK_NOT_FOUND',
+  TASK_ALREADY_TERMINAL: 'TASK_ALREADY_TERMINAL',
+  MODEL_NOT_FOUND: 'MODEL_NOT_FOUND',
+  MODEL_DISABLED: 'MODEL_DISABLED',
+  CHANNEL_UNAVAILABLE: 'CHANNEL_UNAVAILABLE',
+  CREDENTIAL_INVALID: 'CREDENTIAL_INVALID',
+  QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
+
+  // adapter / vendor
+  ADAPTER_INTERNAL: 'ADAPTER_INTERNAL',
+  VENDOR_TIMEOUT: 'VENDOR_TIMEOUT',
+  VENDOR_REJECTED: 'VENDOR_REJECTED',
+  VENDOR_CONTENT_FILTERED: 'VENDOR_CONTENT_FILTERED',
+  VENDOR_UNAVAILABLE: 'VENDOR_UNAVAILABLE',
+
+  // asset / storage
+  ASSET_DOWNLOAD_FAILED: 'ASSET_DOWNLOAD_FAILED',
+  ASSET_TOO_LARGE: 'ASSET_TOO_LARGE',
+  STORAGE_UNAVAILABLE: 'STORAGE_UNAVAILABLE',
+
+  // local CLI runtime
+  CLI_UNREACHABLE: 'CLI_UNREACHABLE',
+  CLI_LOGIN_REQUIRED: 'CLI_LOGIN_REQUIRED',
+  CLI_INVOCATION_FAILED: 'CLI_INVOCATION_FAILED',
+
+  // catch-all
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
+export interface ApiError {
+  code: ErrorCode;
+  message: string;
+  /** HTTP status the gateway should emit; defaults to 500 if omitted. */
+  http_status?: number;
+  /** Optional structured details for the client. */
+  details?: unknown;
+}
+
+const RETRYABLE: readonly ErrorCode[] = [
+  ERROR_CODES.RATE_LIMITED,
+  ERROR_CODES.VENDOR_TIMEOUT,
+  ERROR_CODES.VENDOR_UNAVAILABLE,
+  ERROR_CODES.STORAGE_UNAVAILABLE,
+  ERROR_CODES.CLI_UNREACHABLE,
+  ERROR_CODES.ASSET_DOWNLOAD_FAILED,
+];
+
+export function isRetryable(code: ErrorCode): boolean {
+  return RETRYABLE.includes(code);
+}

@@ -1,0 +1,113 @@
+/* AI log-analysis drawer (read-only). */
+.log-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.log-ai__meta {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.log-ai__body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+/* Request-log detail drawer (read-only). */
+.log-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.log-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.log-detail__id {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  word-break: break-all;
+}
+.log-detail__sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.log-detail__sec-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.04em;
+}
+.log-detail__kv {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+.log-detail__kv > span:nth-child(odd) {
+  color: var(--color-text-tertiary);
+}
+.log-detail__kv > span:nth-child(even) {
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+.log-detail__msgs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.log-detail__turn {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+}
+.log-detail__role {
+  flex: 0 0 60px;
+  font-size: 11px;
+  color: var(--color-accent);
+}
+.log-detail__turn-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-primary);
+}
+.log-detail__resp {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-primary);
+}
+.log-detail__err {
+  color: var(--color-danger, #ef4444);
+  font-size: 13px;
+}
+.log-detail__raw {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-surface);
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 240px;
+  overflow: auto;
+}

@@ -1,0 +1,34 @@
+:root {
+  color-scheme: dark;
+  --site-bg: #07090d;
+  --site-bg-deep: #030407;
+  --site-surface: rgba(18, 22, 31, 0.66);
+  --site-surface-strong: rgba(22, 27, 38, 0.88);
+  --site-surface-soft: rgba(255, 255, 255, 0.035);
+  --site-border: rgba(255, 255, 255, 0.1);
+  --site-border-strong: rgba(255, 255, 255, 0.18);
+  --site-text: #f4f7fb;
+  --site-text-soft: rgba(232, 238, 247, 0.72);
+  --site-text-mute: rgba(214, 224, 238, 0.48);
+  --site-accent: #14b8a6;
+  --site-accent-bright: #2dd4bf;
+  --site-cyan: #38bdf8;
+  --site-blue: #6366f1;
+  --site-pink: #f471b5;
+  --site-success: #34d399;
+  --site-warning: #fbbf24;
+  --site-gradient-brand: linear-gradient(110deg, var(--site-accent-bright), var(--site-cyan) 54%, #818cf8);
+  --site-gradient-text: linear-gradient(110deg, #ffffff 10%, #b8fff4 48%, #b6d9ff 86%);
+  --site-gradient-line: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.76), rgba(56, 189, 248, 0.64), transparent);
+  --site-glass-blur: blur(24px) saturate(1.35);
+  --site-shadow-lg: 0 36px 90px rgba(0, 0, 0, 0.46);
+  --site-shadow-glow: 0 0 80px rgba(20, 184, 166, 0.16);
+  --site-radius-sm: 10px;
+  --site-radius-md: 16px;
+  --site-radius-lg: 24px;
+  --site-radius-xl: 32px;
+  --site-content: 1180px;
+  --site-reading: 720px;
+  --site-font-sans: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --site-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}

@@ -1,0 +1,29 @@
+/* Frosted-glass theming layer for all floating surfaces — menus, popovers,
+ * panels, the canvas dock/toolbar and the quick-gen bar. Imported last so it
+ * wins; uses !important on the background/border so it overrides each
+ * component's own fill. Theme-adaptive via --glass-* tokens. */
+
+.ctx-menu,
+.sc-panel,
+.canvas-dock,
+.cdock__palette,
+.node-toolbar,
+.qg-detail,
+.qg-bar,
+.nif,
+.nifp__pop,
+.popover,
+.dialog,
+.drawer,
+.select__menu {
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+/* The detail modal stage sits inside the glass shell — keep it readable. */
+.qg-detail__stage {
+  background: transparent !important;
+}

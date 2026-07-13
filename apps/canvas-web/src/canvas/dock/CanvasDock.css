@@ -1,0 +1,75 @@
+/* Bottom-center canvas dock (LibTV pill). */
+
+.canvas-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--c-glass, rgba(14, 19, 34, 0.93));
+  border: 1px solid var(--c-glass-stroke, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.cdock__add {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gradient-aurora, linear-gradient(90deg, #14b8a6, #38bdf8));
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 110ms ease, filter 120ms ease;
+}
+.cdock__add:hover { filter: brightness(1.08); }
+.cdock__add:active { transform: scale(0.95); }
+
+.cdock__sep { width: 1px; height: 22px; margin: 0 2px; background: rgba(255, 255, 255, 0.12); }
+
+.cdock__btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--c-text-on-dark-2, rgba(255, 255, 255, 0.7));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 110ms ease;
+}
+.cdock__btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.cdock__btn:active { transform: scale(0.94); }
+.cdock__btn--on { background: rgba(20, 184, 166, 0.22); color: var(--c-accent-hover, #2dd4bf); }
+
+.cdock__palette { width: 200px; padding: 6px; }
+.cdock__palette-title {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--c-text-on-dark-3, rgba(255, 255, 255, 0.45));
+}
+.cdock__palette-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--c-text-on-dark-2, rgba(255, 255, 255, 0.8));
+  font-size: 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cdock__palette-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.cdock__palette-item:active { transform: scale(0.99); }

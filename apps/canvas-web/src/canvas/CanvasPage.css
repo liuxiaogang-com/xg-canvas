@@ -1,0 +1,17 @@
+/* Full-screen canvas shell — no app sidebar; canvas chrome is the only UI. */
+
+.canvas-shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-bg-canvas);
+  overflow: hidden;
+}
+
+.canvas-shell__view {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding-top: 80px;
+}

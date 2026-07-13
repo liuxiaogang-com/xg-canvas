@@ -1,0 +1,58 @@
+/* Right-click node context menu. */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 30;
+  min-width: 172px;
+  padding: 5px;
+  background: var(--c-canvas-panel, #161b2e);
+  border: 1px solid var(--c-canvas-border, #242840);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  animation: ctxIn 110ms ease-out;
+}
+
+@keyframes ctxIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ctx-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--c-text-on-dark-2, rgba(255, 255, 255, 0.8));
+  font: inherit;
+  font-size: 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ctx-menu__item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.ctx-menu__item:active { transform: scale(0.99); }
+.ctx-menu__item--danger:hover { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+
+.ctx-menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 9px;
+  flex: 0 0 auto;
+  color: var(--c-text-on-dark-3, rgba(255, 255, 255, 0.55));
+}
+.ctx-menu__item:hover .ctx-menu__icon { color: var(--c-accent-hover, #2dd4bf); }
+
+.ctx-menu__sep { height: 1px; margin: 4px 2px; background: rgba(255, 255, 255, 0.08); }
+
+.ctx-menu__key {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--c-text-on-dark-4, rgba(255, 255, 255, 0.35));
+}

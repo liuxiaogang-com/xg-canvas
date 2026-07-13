@@ -1,0 +1,77 @@
+<footer class="site-footer">
+  <div class="shell site-footer__inner">
+    <div>
+      <p class="site-footer__brand">XG Canvas</p>
+      <p class="site-footer__copy">西瓜画布 · 面向企业创意团队的开源、自托管 AI 创意生产平台。</p>
+    </div>
+
+    <nav class="site-footer__nav" aria-label="页脚导航">
+      <a href="/docs/">文档</a>
+      <a href="https://github.com/liuxiaogang-com/xg-canvas">GitHub</a>
+      <a href="https://liuxiaogang.com">Liu Xiaogang</a>
+    </nav>
+  </div>
+  <div class="shell site-footer__meta">
+    <span>AGPL-3.0-only · Commercial licensing available</span>
+    <span>当前为 Beta，接口与结构仍可能调整。</span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding: 32px 0 44px;
+    border-top: 1px solid var(--site-border);
+    color: var(--site-text-mute);
+  }
+
+  .site-footer__inner,
+  .site-footer__meta,
+  .site-footer__nav {
+    display: flex;
+    align-items: center;
+  }
+
+  .site-footer__inner {
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .site-footer__brand {
+    margin: 0 0 8px;
+    color: var(--site-text);
+    font-weight: 700;
+  }
+
+  .site-footer__copy {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .site-footer__nav {
+    gap: 24px;
+    color: var(--site-text-soft);
+    font-size: 13px;
+  }
+
+  .site-footer__nav a:hover {
+    color: var(--site-text);
+  }
+
+  .site-footer__meta {
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.055);
+    font-family: var(--site-font-mono);
+    font-size: 10px;
+  }
+
+  @media (max-width: 720px) {
+    .site-footer__inner,
+    .site-footer__meta {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>

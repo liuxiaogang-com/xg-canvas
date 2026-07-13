@@ -1,0 +1,275 @@
+.cmp {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-media-surface);
+  border-radius: inherit;
+}
+
+.cmp__controller {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Kill per-control “tiles” — one continuous chrome instead. */
+  --media-primary-color: var(--color-media-chrome);
+  --media-secondary-color: var(--color-media-chrome-soft);
+  --media-icon-color: var(--color-media-chrome);
+  --media-text-color: var(--color-media-chrome-soft);
+  --media-control-background: transparent;
+  --media-control-hover-background: var(--color-media-control-hover);
+  --media-control-padding: 6px;
+  --media-control-height: 28px;
+  --media-button-icon-width: 16px;
+  --media-button-icon-height: 16px;
+  --media-font-family: inherit;
+  --media-font-size: 11px;
+  --media-font-weight: 500;
+  --media-range-track-height: 3px;
+  --media-range-track-background: var(--color-media-track);
+  --media-range-bar-color: var(--c-accent, #14b8a6);
+  --media-range-thumb-background: var(--color-media-chrome);
+  --media-range-thumb-width: 10px;
+  --media-range-thumb-height: 10px;
+  --media-range-thumb-border-radius: 99px;
+  --media-preview-time-background: var(--color-media-tooltip);
+  --media-tooltip-display: none;
+}
+
+.cmp__video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--color-media-surface);
+}
+
+.cmp__poster {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--color-media-surface);
+}
+
+.cmp__poster-ph {
+  width: 100%;
+  height: 100%;
+  background: var(--color-media-surface);
+}
+
+.cmp__play-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cmp__play-hit:disabled {
+  cursor: default;
+}
+
+.cmp__play-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--color-media-control);
+  box-shadow: var(--shadow-media-control);
+  color: var(--color-media-chrome);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Optical centering: play triangles read left-heavy */
+  padding-left: 3px;
+  box-sizing: border-box;
+}
+
+.cmp__play-icon svg {
+  display: block;
+}
+
+.cmp__play-icon--loading {
+  opacity: 0.55;
+}
+
+.cmp__expand-idle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-media-control);
+  color: var(--color-media-chrome);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.cmp--inline:hover .cmp__expand-idle,
+.cmp--inline:focus-within .cmp__expand-idle {
+  opacity: 1;
+}
+
+.cmp__expand-idle svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+/* Unified glass dock — not segmented tiles */
+.cmp__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex !important;
+  align-items: center;
+  gap: 0;
+  padding: 22px 8px 8px;
+  background: var(--gradient-media-controls) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  /* Force children to share one chrome instead of per-tile panels */
+  --media-control-background: transparent;
+  --media-control-hover-background: var(--color-media-control-hover);
+}
+
+.cmp--inline .cmp__bar {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.cmp--inline:hover .cmp__bar,
+.cmp--inline:focus-within .cmp__bar {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.cmp__bar media-play-button,
+.cmp__bar media-mute-button,
+.cmp__bar media-fullscreen-button,
+.cmp__bar media-time-display,
+.cmp__bar media-time-range {
+  border-radius: 6px;
+}
+
+.cmp__bar media-time-range {
+  flex: 1 1 auto;
+  min-width: 48px;
+  --media-control-hover-background: transparent;
+}
+
+.cmp__bar media-time-display {
+  min-width: auto;
+  padding-inline: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  opacity: 0.85;
+}
+
+.cmp__expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-media-chrome);
+  cursor: pointer;
+}
+
+.cmp__expand:hover {
+  background: var(--color-media-control-hover);
+}
+
+.cmp__expand svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.cmp--floating {
+  width: min(92vw, 960px);
+  max-height: 85vh;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-media-floating);
+}
+
+.cmp--floating .cmp__bar {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  padding: 28px 12px 12px;
+}
+
+.cmp-float {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-media-scrim);
+  backdrop-filter: blur(10px);
+}
+
+.cmp-float__panel {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.cmp-float__close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  z-index: 1;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-media-control);
+  color: var(--color-media-chrome-soft);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-media-control);
+}
+
+.cmp-float__close:hover {
+  color: var(--color-media-chrome);
+  background: var(--color-media-control-hover);
+}
+
+.cmp__play-hit:focus-visible .cmp__play-icon,
+.cmp__expand-idle:focus-visible,
+.cmp__expand:focus-visible,
+.cmp-float__close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

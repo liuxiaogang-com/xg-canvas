@@ -1,0 +1,34 @@
+{
+  "name": "xg-canvas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Creative Workflow Canvas Platform",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:canvas-api": "pnpm --filter @xgcanvas/canvas-api dev",
+    "dev:canvas-web": "pnpm --filter @xgcanvas/canvas-web dev",
+    "dev:canvas-site": "pnpm --filter @xgcanvas/canvas-site dev",
+    "build:workspace-libs": "pnpm --filter @xgcanvas/shared-types --filter @xgcanvas/constraint-engine --filter @xgcanvas/adapters-contract build",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "lint:max-lines": "eslint \"apps/**/src/**/*.{ts,tsx}\" \"packages/**/src/**/*.{ts,tsx}\"",
+    "ci:verify": "pnpm -r lint && pnpm test && pnpm lint:max-lines && pnpm -r build",
+    "db:migrate": "node scripts/db-migrate.mjs account canvas ops",
+    "db:migrate:account": "node scripts/db-migrate.mjs account",
+    "db:migrate:canvas": "node scripts/db-migrate.mjs canvas",
+    "db:migrate:ops": "node scripts/db-migrate.mjs ops",
+    "recover:instance-owner": "node scripts/recover-instance-owner.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.16.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "prettier": "^3.4.0"
+  }
+}

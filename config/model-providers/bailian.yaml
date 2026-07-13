@@ -1,0 +1,471 @@
+version: "1.0"
+
+# Aliyun Bailian / Model Studio / DashScope.
+# Text models use the OpenAI-compatible endpoint. Image and video models use
+# DashScope native APIs so generated vendor URLs can be copied into our S3/R2 bucket.
+
+provider:
+  slug: bailian
+  display_name: "阿里云百炼"
+  icon_url: "/icons/bailian.svg"
+  homepage_url: "https://bailian.console.aliyun.com"
+  auth_method: api_key
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  adapter_keys: [openai-compat, bailian-dashscope]
+  invocation_methods: [http]
+  sdk_package: "openai"
+  supported_regions: ["cn", "global"]
+  description: "阿里云百炼模型服务平台：文本走 OpenAI 兼容协议，图像/视频走 DashScope 原生 API。"
+
+channels:
+  - slug: bailian-openai-compat
+    display_name: "百炼 OpenAI 兼容 API"
+    invocation_method: http
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    load_balance_strategy: round_robin
+    rate_limit_rpm: 60
+    concurrent_limit: 20
+
+  - slug: bailian-dashscope-native
+    display_name: "百炼 DashScope 原生 API"
+    invocation_method: http
+    base_url: "https://dashscope.aliyuncs.com/api/v1"
+    load_balance_strategy: round_robin
+    rate_limit_rpm: 30
+    concurrent_limit: 5
+
+models:
+  - model_id: "bailian:qwen-max"
+    provider_model_id: "qwen-max"
+    display_name: "通义千问 Max"
+    description: "旗舰文本模型，适合复杂推理和高难度任务。"
+    task_types: [gen.text]
+    capabilities: [text_chat, json_mode, tool_use, streaming]
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs: [bailian-openai-compat]
+    supports_streaming: true
+    tags: ["旗舰", "文本"]
+    param_schema:
+      extends: "templates/text-generation"
+    limits:
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+    pricing:
+      currency: CNY
+      components:
+        - { meter: input_tokens, per: 1000000, price: 2.4 }
+        - { meter: output_tokens, per: 1000000, price: 9.6 }
+
+  - model_id: "bailian:qwen-plus"
+    provider_model_id: "qwen-plus"
+    display_name: "通义千问 Plus"
+    description: "均衡型文本模型，支持长上下文和流式输出。"
+    task_types: [gen.text]
+    capabilities: [text_chat, json_mode, tool_use, streaming, reasoning]
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs: [bailian-openai-compat]
+    supports_streaming: true
+    tags: ["推荐", "文本"]
+    param_schema:
+      extends: "templates/text-generation"
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 32768
+    pricing:
+      currency: CNY
+      components:
+        - { meter: input_tokens, per: 1000000, price: 0.8 }
+        - { meter: output_tokens, per: 1000000, price: 2 }
+
+  - model_id: "bailian:qwen-flash"
+    provider_model_id: "qwen-flash"
+    display_name: "通义千问 Flash"
+    description: "低成本高速文本模型。"
+    task_types: [gen.text]
+    capabilities: [text_chat, json_mode, tool_use, streaming, reasoning]
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs: [bailian-openai-compat]
+    supports_streaming: true
+    tags: ["高速", "低成本"]
+    param_schema:
+      extends: "templates/text-generation"
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 32768
+    pricing:
+      currency: CNY
+      components:
+        - { meter: input_tokens, per: 1000000, price: 0.15 }
+        - { meter: output_tokens, per: 1000000, price: 1.5 }
+
+  - model_id: "bailian:wan2.6-t2i"
+    provider_model_id: "wan2.6-t2i"
+    display_name: "万相 2.6 文生图"
+    description: "万相 2.6 文生图，DashScope 同步接口，1-4 张图片。"
+    task_types: [gen.image]
+    capabilities: [image_gen]
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs: [bailian-dashscope-native]
+    tags: ["推荐", "图像", "文生图"]
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+    param_schema:
+      prompt:
+        kind: text
+        label: "提示词"
+        required: true
+        max_length: 2100
+        zone: center
+      negative_prompt:
+        kind: text
+        label: "反向提示词"
+        max_length: 500
+        zone: center
+      size:
+        kind: enum
+        label: "尺寸"
+        values: ["1280*1280", "1104*1472", "1472*1104", "960*1696", "1696*960"]
+        default: "1280*1280"
+        zone: bottom
+      n:
+        kind: integer
+        label: "张数"
+        min: 1
+        max: 4
+        step: 1
+        default: 1
+        zone: bottom
+      prompt_extend:
+        kind: boolean
+        label: "智能改写提示词"
+        default: true
+        zone: bottom
+      watermark:
+        kind: boolean
+        label: "添加水印"
+        default: false
+        zone: bottom
+      seed:
+        kind: integer
+        label: "随机种子"
+        min: 0
+        max: 2147483647
+        zone: bottom
+    limits:
+      max_images_per_request: 4
+      max_prompt_chars: 2100
+      max_negative_prompt_chars: 500
+    pricing:
+      currency: CNY
+      components:
+        - { meter: image_count, per: 1, price: 0.12 }
+
+  - model_id: "bailian:qwen-image-2.0-pro"
+    provider_model_id: "qwen-image-2.0-pro"
+    display_name: "千问图像 2.0 Pro"
+    description: "千问图像 Pro，擅长文字渲染、真实质感和语义遵循，支持同步生图。"
+    task_types: [gen.image]
+    capabilities: [image_gen, image_ref]
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs: [bailian-dashscope-native]
+    tags: ["推荐", "图像", "文字渲染"]
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+        - id: image_to_image
+          label: 图生图
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 9, library: { kinds: [character, style], forms: [material] } }
+    param_schema:
+      prompt:
+        kind: text
+        label: "提示词"
+        required: true
+        max_length: 1300
+        zone: center
+      negative_prompt:
+        kind: text
+        label: "反向提示词"
+        max_length: 500
+        zone: center
+      size:
+        kind: enum
+        label: "尺寸"
+        values: ["2048*2048", "2688*1536", "1536*2688", "2368*1728", "1728*2368"]
+        default: "2048*2048"
+        zone: bottom
+      n:
+        kind: integer
+        label: "张数"
+        min: 1
+        max: 6
+        step: 1
+        default: 1
+        zone: bottom
+      prompt_extend:
+        kind: boolean
+        label: "智能改写提示词"
+        default: true
+        zone: bottom
+      watermark:
+        kind: boolean
+        label: "添加水印"
+        default: false
+        zone: bottom
+      seed:
+        kind: integer
+        label: "随机种子"
+        min: 0
+        max: 2147483647
+        zone: bottom
+    limits:
+      max_images_per_request: 6
+      max_prompt_tokens: 1300
+      max_negative_prompt_chars: 500
+    pricing:
+      currency: CNY
+      components:
+        - { meter: image_count, per: 1, price: 0.05 }
+
+  - model_id: "bailian:wan2.7-image-pro"
+    provider_model_id: "wan2.7-image-pro"
+    display_name: "万相 2.7 图像 Pro"
+    description: "万相 2.7 图像模型，支持文生图和多图编辑。"
+    task_types: [gen.image]
+    capabilities: [image_gen, image_ref]
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs: [bailian-dashscope-native]
+    tags: ["旗舰", "图像", "编辑"]
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+        - id: image_to_image
+          label: 多图编辑
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 9, library: { kinds: [character, style], forms: [material] } }
+    param_schema:
+      prompt:
+        kind: text
+        label: "提示词"
+        required: true
+        max_length: 2100
+        zone: center
+      negative_prompt:
+        kind: text
+        label: "反向提示词"
+        max_length: 500
+        zone: center
+      size:
+        kind: enum
+        label: "质量档位"
+        values: ["1K", "2K", "4K"]
+        default: "1K"
+        zone: bottom
+      n:
+        kind: integer
+        label: "张数"
+        min: 1
+        max: 4
+        step: 1
+        default: 1
+        zone: bottom
+      thinking_mode:
+        kind: boolean
+        label: "思考模式"
+        default: true
+        zone: bottom
+      watermark:
+        kind: boolean
+        label: "添加水印"
+        default: false
+        zone: bottom
+      seed:
+        kind: integer
+        label: "随机种子"
+        min: 0
+        max: 2147483647
+        zone: bottom
+    limits:
+      max_images_per_request: 4
+      max_prompt_chars: 2100
+      max_negative_prompt_chars: 500
+      max_reference_images: 9
+    pricing:
+      currency: CNY
+      components:
+        - { meter: image_count, per: 1, price: 0.12 }
+
+  - model_id: "bailian:wan2.7-t2v"
+    provider_model_id: "wan2.7-t2v"
+    display_name: "万相 2.7 文生视频"
+    description: "万相 2.7 文生视频，DashScope 异步接口，2-15 秒。"
+    task_types: [gen.video]
+    capabilities: [video_gen]
+    invocation_mode: async
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs: [bailian-dashscope-native]
+    tags: ["视频", "文生视频"]
+    input_contract:
+      default_mode: text_to_video
+      modes:
+        - id: text_to_video
+          label: 文生视频
+    param_schema:
+      prompt:
+        kind: text
+        label: "提示词"
+        required: true
+        max_length: 5000
+        zone: center
+      negative_prompt:
+        kind: text
+        label: "反向提示词"
+        max_length: 500
+        zone: center
+      ratio:
+        kind: enum
+        label: "比例"
+        values: ["16:9", "9:16", "1:1", "4:3", "3:4"]
+        default: "16:9"
+        zone: bottom
+      resolution:
+        kind: enum
+        label: "分辨率"
+        values: ["720P", "1080P"]
+        default: "1080P"
+        zone: bottom
+      duration:
+        kind: integer
+        label: "时长（秒）"
+        min: 2
+        max: 15
+        step: 1
+        default: 5
+        zone: bottom
+      prompt_extend:
+        kind: boolean
+        label: "智能改写提示词"
+        default: true
+        zone: bottom
+      watermark:
+        kind: boolean
+        label: "添加水印"
+        default: false
+        zone: bottom
+      seed:
+        kind: integer
+        label: "随机种子"
+        min: 0
+        max: 2147483647
+        zone: bottom
+    poll_policy:
+      initial_delay_ms: 5000
+      interval_ms: 10000
+      max_total_ms: 600000
+    limits:
+      min_duration_sec: 2
+      max_duration_sec: 15
+      max_prompt_chars: 5000
+    pricing:
+      currency: CNY
+      components:
+        - { meter: duration_seconds, per: 1, price: 0.30 }
+
+  - model_id: "bailian:wan2.7-i2v"
+    provider_model_id: "wan2.7-i2v-2026-04-25"
+    display_name: "万相 2.7 图生视频"
+    description: "万相 2.7 图生视频，支持首帧、首尾帧、驱动音频和视频续写。"
+    task_types: [gen.video]
+    capabilities: [video_gen, image_ref]
+    invocation_mode: async
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs: [bailian-dashscope-native]
+    tags: ["视频", "图生视频"]
+    input_contract:
+      default_mode: image_to_video
+      modes:
+        - id: image_to_video
+          label: 图生视频
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 1, library: { kinds: [character, style], forms: [material] } }
+        - id: first_last_frame
+          label: 首尾帧
+          required_slots:
+            - { slot: first_frame, type: image, min: 1, max: 1 }
+            - { slot: last_frame, type: image, min: 1, max: 1 }
+        - id: audio_driven_video
+          label: 音频参考
+          required_slots:
+            - { slot: source_image, type: image, min: 1, max: 1, library: { kinds: [character, style], forms: [material] } }
+            - { slot: driving_audio, type: audio, min: 1, max: 1, library: { kinds: [voice], forms: [material] } }
+        - id: video_continue
+          label: 视频续写
+          required_slots:
+            - { slot: first_clip, type: video, min: 1, max: 1 }
+    param_schema:
+      prompt:
+        kind: text
+        label: "提示词"
+        max_length: 5000
+        zone: center
+      negative_prompt:
+        kind: text
+        label: "反向提示词"
+        max_length: 500
+        zone: center
+      resolution:
+        kind: enum
+        label: "分辨率"
+        values: ["720P", "1080P"]
+        default: "1080P"
+        zone: bottom
+      duration:
+        kind: integer
+        label: "时长（秒）"
+        min: 2
+        max: 15
+        step: 1
+        default: 5
+        zone: bottom
+      prompt_extend:
+        kind: boolean
+        label: "智能改写提示词"
+        default: true
+        zone: bottom
+      watermark:
+        kind: boolean
+        label: "添加水印"
+        default: false
+        zone: bottom
+      seed:
+        kind: integer
+        label: "随机种子"
+        min: 0
+        max: 2147483647
+        zone: bottom
+    poll_policy:
+      initial_delay_ms: 5000
+      interval_ms: 10000
+      max_total_ms: 600000
+    limits:
+      min_duration_sec: 2
+      max_duration_sec: 15
+      max_prompt_chars: 5000
+      max_reference_images: 2
+    pricing:
+      currency: CNY
+      components:
+        - { meter: duration_seconds, per: 1, price: 0.45 }

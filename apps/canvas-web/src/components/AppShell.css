@@ -1,0 +1,122 @@
+/* AppShell — narrow icon rail (jimeng-style) + main outlet. */
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden; /* rail + topbar stay fixed; only .app-shell__content scrolls */
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+}
+
+/* ---- narrow left rail ---- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72px;
+  flex-shrink: 0;
+  padding: 14px 6px;
+  gap: 6px;
+  background: var(--color-bg-surface);
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.rail__brand {
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+.rail__brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #5b8bff 0%, #22d3ee 100%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.rail__nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+/* management group (预设 / 配置) pinned to the bottom of the rail */
+.rail__nav--bottom {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.rail__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 60px;
+  padding: 9px 0 7px;
+  border-radius: 12px;
+  color: var(--color-text-tertiary);
+  transition: background 130ms ease, color 130ms ease;
+}
+.rail__item:hover {
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-primary);
+}
+.rail__item:active {
+  transform: scale(0.96);
+}
+.rail__item.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}
+.rail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rail__label {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.2px;
+}
+
+/* ---- main column ---- */
+.app-shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-app);
+}
+
+.app-shell__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  height: 52px;
+  flex-shrink: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-app);
+}
+
+.app-shell__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.app-shell__loading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-app);
+}

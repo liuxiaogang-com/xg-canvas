@@ -1,0 +1,52 @@
+/* Canvas shortcuts panel (theme-adaptive). */
+
+.sc-overlay {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 130;
+  background: rgba(5, 6, 10, 0.55); backdrop-filter: blur(2px);
+  display: grid; place-items: center; padding: 24px;
+}
+.sc-panel {
+  width: min(520px, 94vw); max-height: 80vh; display: flex; flex-direction: column;
+  background: var(--color-bg-surface); border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.sc-panel__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--color-border-subtle);
+}
+.sc-panel__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
+.sc-close {
+  background: var(--color-bg-surface-2); border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 13px;
+}
+.sc-close:hover { background: var(--color-bg-hover); }
+
+.sc-panel__body { padding: 12px 18px; overflow: auto; }
+.sc-group { margin-bottom: 14px; }
+.sc-group__title { font-size: 11px; letter-spacing: 0.04em; color: var(--color-text-tertiary); margin: 6px 0 6px; }
+.sc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 4px; border-bottom: 1px solid var(--color-border-subtle);
+}
+.sc-row:last-child { border-bottom: 0; }
+.sc-row__label { font-size: 13px; color: var(--color-text-primary); }
+.sc-row__keys { display: flex; align-items: center; gap: 6px; }
+.sc-key {
+  min-width: 76px; text-align: center; font-size: 12px;
+  padding: 6px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default); background: var(--color-bg-surface-2);
+  color: var(--color-text-primary); font-family: var(--font-mono);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sc-key:hover { background: var(--color-bg-hover); border-color: var(--color-border-strong); }
+.sc-key--rec { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-accent-soft); }
+.sc-reset {
+  font-size: 11px; padding: 5px 9px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default); background: transparent; color: var(--color-text-tertiary);
+}
+.sc-reset:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+
+.sc-panel__foot {
+  padding: 12px 18px; border-top: 1px solid var(--color-border-subtle);
+  font-size: 12px; color: var(--color-text-tertiary);
+}

@@ -1,0 +1,69 @@
+version: "1.0"
+
+provider:
+  slug: deepseek
+  display_name: "DeepSeek"
+  icon_url: "/icons/deepseek.svg"
+  homepage_url: "https://platform.deepseek.com"
+  auth_method: api_key
+  base_url: "https://api.deepseek.com"
+  default_invocation_method: http
+  sdk_package: "openai"
+  supported_regions: ["cn", "global"]
+  description: "DeepSeek 大模型，兼容 OpenAI API 格式"
+
+channels:
+  - slug: deepseek-official
+    display_name: "DeepSeek 官方 API"
+    invocation_method: http
+    load_balance_strategy: round_robin
+    rate_limit_rpm: 60
+    concurrent_limit: 20
+
+# 注:旧 id deepseek-chat / deepseek-reasoner 将于 2026-07-24 下线,统一改用 V4。
+# 两个 V4 模型默认都"会思考"(emit reasoning_content);普通对话可在请求里关思考。
+# pricing 用费率组件形态(meter × per × price),计费引擎(rate_cards)据此 seed。
+# meter 映射:input_tokens<-prompt_cache_miss_tokens, cached_input_tokens<-prompt_cache_hit_tokens,
+#            output_tokens<-completion_tokens(已含 reasoning_tokens,勿重复计)。
+models:
+  - model_id: "deepseek:deepseek-v4-flash"
+    provider_model_id: "deepseek-v4-flash"
+    display_name: "DeepSeek V4 Flash"
+    description: "快速经济版(默认会思考,可关思考更快更省),1M 上下文"
+    task_types: [gen.text]
+    capabilities: [text_chat, json_mode, structured_output, tool_use, streaming, reasoning]
+    invocation_mode: stream
+    supports_streaming: true
+    tags: ["推荐", "高性价比"]
+    param_schema:
+      extends: "templates/text-generation"
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 384000
+    pricing:
+      currency: USD
+      components:
+        - { meter: input_tokens,        per: 1000000, price: 0.14 }
+        - { meter: cached_input_tokens, per: 1000000, price: 0.0028 }
+        - { meter: output_tokens,       per: 1000000, price: 0.28 }
+
+  - model_id: "deepseek:deepseek-v4-pro"
+    provider_model_id: "deepseek-v4-pro"
+    display_name: "DeepSeek V4 Pro"
+    description: "旗舰推理模型,复杂推理/代码/Agent 首选,1M 上下文"
+    task_types: [gen.text]
+    capabilities: [text_chat, json_mode, structured_output, tool_use, streaming, reasoning]
+    invocation_mode: stream
+    supports_streaming: true
+    tags: ["旗舰", "推理增强"]
+    param_schema:
+      extends: "templates/text-generation"
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 384000
+    pricing:
+      currency: USD
+      components:
+        - { meter: input_tokens,        per: 1000000, price: 0.435 }
+        - { meter: cached_input_tokens, per: 1000000, price: 0.003625 }
+        - { meter: output_tokens,       per: 1000000, price: 0.87 }

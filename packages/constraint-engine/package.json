@@ -1,0 +1,18 @@
+{
+  "name": "@xgcanvas/constraint-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schema-driven parameter constraint engine (shared between frontend and backend)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

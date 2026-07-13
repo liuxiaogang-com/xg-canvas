@@ -1,0 +1,132 @@
+/* Instance readiness — admin bar + member surface gate */
+
+.rdy-bar {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.rdy-bar__toggle {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border-subtle));
+  border-radius: 9999px;
+  padding: 8px 14px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.rdy-bar__toggle:hover {
+  border-color: var(--color-accent);
+}
+
+.rdy-bar__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  width: 100%;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rdy-bar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rdy-bar__item:hover {
+  background: var(--color-bg-surface-2);
+}
+
+.rdy-bar__item strong {
+  font-size: 13px;
+}
+
+.rdy-bar__item span {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.rdy-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: color-mix(in srgb, var(--color-bg-app) 55%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.rdy-modal__card {
+  width: min(100%, 420px);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.rdy-modal__card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.rdy-modal__card > p {
+  margin: var(--space-3) 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.rdy-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rdy-modal__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface-2);
+}
+
+.rdy-modal__list strong {
+  font-size: 13px;
+}
+
+.rdy-modal__list span {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}

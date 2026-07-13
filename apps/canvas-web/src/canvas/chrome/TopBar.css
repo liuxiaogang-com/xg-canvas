@@ -1,0 +1,135 @@
+/* Canvas top bar — three zones (project / view tabs / account), one flat glass
+ * surface per zone (no nested pills). Grid keeps the center truly centered. */
+.cv-topbar {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  pointer-events: none;
+}
+.cv-topbar__left { justify-self: start; }
+.cv-topbar__center { justify-self: center; }
+.cv-topbar__right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cv-topbar__left > *,
+.cv-topbar__center > *,
+.cv-topbar__right > * {
+  pointer-events: auto;
+}
+
+/* shared frosted pill base */
+.cv-topbar__crumb,
+.cv-seg,
+.cv-topbar__queue {
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  background: var(--glass-bg, rgba(18, 20, 30, 0.66));
+  -webkit-backdrop-filter: var(--glass-blur, blur(20px) saturate(1.5));
+  backdrop-filter: var(--glass-blur, blur(20px) saturate(1.5));
+  border-radius: 999px;
+}
+
+/* left: breadcrumb */
+.cv-topbar__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+.cv-topbar__crumb-link {
+  color: var(--color-text-secondary, #9aa3b5);
+  transition: color 120ms ease;
+}
+.cv-topbar__crumb-link:hover { color: var(--color-text-primary, #f2f4f8); }
+.cv-topbar__crumb-sep { color: var(--color-text-tertiary, #6a7287); }
+.cv-topbar__crumb-name {
+  color: var(--color-text-primary, #f2f4f8);
+  font-weight: 600;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cv-topbar__crumb-name--editable {
+  cursor: text;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+.cv-topbar__crumb-name--editable:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.cv-topbar__crumb-input {
+  width: min(280px, 36vw);
+  height: 24px;
+  margin: 0;
+  padding: 0 6px;
+  border: 1px solid var(--color-accent, #14b8a6);
+  border-radius: 6px;
+  background: rgba(10, 12, 18, 0.85);
+  color: var(--color-text-primary, #f2f4f8);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+
+/* center: pill-shaped segmented (rounded container AND rounded active item) */
+.cv-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+  padding: 4px;
+}
+.cv-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary, #9aa3b5);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 130ms ease, color 130ms ease;
+}
+.cv-seg__btn:hover { color: var(--color-text-primary, #f2f4f8); }
+.cv-seg__btn--active {
+  background: var(--color-bg-surface-3, #262c39);
+  color: var(--color-text-primary, #fff);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.1));
+}
+
+/* right: queue button */
+.cv-topbar__queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 15px;
+  color: var(--color-text-secondary, #9aa3b5);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 130ms ease, border-color 130ms ease;
+}
+.cv-topbar__queue:hover { color: var(--color-text-primary, #f2f4f8); border-color: var(--color-border-strong, #4a556a); }
+.cv-topbar__queue:active { transform: scale(0.97); }
+.cv-topbar__queue.is-active { color: var(--color-accent-hover, #2dd4bf); border-color: var(--color-accent, #14b8a6); }
+.cv-topbar__queue svg { color: currentColor; }
+
+/* the ThemeSwitch keeps its own .seg pill; round it to match this bar */
+.cv-topbar__right .seg { border-radius: 999px; height: 36px; }
+.cv-topbar__right .seg__btn { border-radius: 999px; }

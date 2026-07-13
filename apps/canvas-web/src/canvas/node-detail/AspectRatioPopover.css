@@ -1,0 +1,193 @@
+/* AspectRatioPopover — DARK variant. The .pen design shows a light-themed
+   popover; per project rules popovers in canvas-web are dark.
+   Anchored above its trigger; caller positions the wrapper. */
+
+.ar-pop {
+  width: 380px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.ar-pop__sec {
+  padding: 16px 18px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ar-pop__sec:first-child {
+  border-top: 0;
+}
+
+.ar-pop__sec-title {
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 10px;
+}
+
+/* ---------- ratio chips row ---------- */
+
+.ar-pop__chips {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 6px;
+}
+
+.ar-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.ar-chip:hover {
+  background: var(--color-bg-surface-3);
+  color: var(--color-text-primary);
+}
+
+.ar-chip--active {
+  border-color: var(--color-text-primary);
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ar-chip__icon {
+  width: 18px;
+  height: 14px;
+  border: 1.4px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.85;
+}
+
+/* Adjust the icon proportions per ratio for a quick visual hint */
+.ar-chip__icon[data-ratio="21:9"] { width: 22px; height: 9px; }
+.ar-chip__icon[data-ratio="16:9"] { width: 22px; height: 12px; }
+.ar-chip__icon[data-ratio="3:2"]  { width: 20px; height: 13px; }
+.ar-chip__icon[data-ratio="4:3"]  { width: 18px; height: 14px; }
+.ar-chip__icon[data-ratio="1:1"]  { width: 16px; height: 16px; }
+.ar-chip__icon[data-ratio="3:4"]  { width: 14px; height: 18px; }
+.ar-chip__icon[data-ratio="2:3"]  { width: 13px; height: 19px; }
+.ar-chip__icon[data-ratio="9:16"] { width: 12px; height: 21px; }
+.ar-chip__icon[data-ratio="智能"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border-style: dashed;
+}
+
+.ar-chip__label {
+  line-height: 1.2;
+}
+
+/* ---------- resolution toggle ---------- */
+
+.ar-pop__resolutions {
+  display: flex;
+  gap: 10px;
+}
+
+.ar-pill {
+  flex: 1;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--color-bg-surface-3);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.ar-pill:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.ar-pill--active {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ---------- W/H inputs ---------- */
+
+.ar-pop__size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ar-size {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 38px;
+  background: var(--color-bg-surface-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+}
+
+.ar-size__label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.ar-size__input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  /* hide spinners */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.ar-size__input::-webkit-outer-spin-button,
+.ar-size__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ar-size__unit {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.ar-pop__link {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-tertiary);
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ar-pop__link--on {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: rgba(20, 184, 166, 0.10);
+}

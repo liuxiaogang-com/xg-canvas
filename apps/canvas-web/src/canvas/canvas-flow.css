@@ -1,0 +1,285 @@
+/* Node shell (LibTV-aligned) + single accent ports for the React Flow board. */
+
+/* ---- Floating title label above the card (rendered by ui-kit NodeShell) ---- */
+.nodewrap {
+  box-sizing: border-box;
+  color: #f7f7f7;
+}
+.nodewrap__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 2px 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: #919191;
+}
+.nodewrap__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-text-on-dark-3, rgba(255, 255, 255, 0.55));
+}
+.nodewrap__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.nodewrap__dot--pulse {
+  box-shadow: 0 0 6px #fbbf24;
+  animation: nodeDotPulse 1.2s ease-in-out infinite;
+}
+@keyframes nodeDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.nodewrap__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+.nodewrap__title-input {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: -2px 0;
+  padding: 1px 6px;
+  border: 1px solid var(--c-accent, #14b8a6);
+  border-radius: 6px;
+  background: var(--node-card-bg, #232529);
+  color: var(--color-text-primary, #f2f4f8);
+  font: inherit;
+  outline: none;
+}
+.nodewrap__meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* ---- Node card: flat fill, hairline border, no shadow (LibTV); theme-aware ---- */
+.nodecard {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--node-card-bg, #232529);
+  border: 1px solid var(--node-card-border, #34373d);
+  /* visible (not hidden) so the side "+" connect handles aren't clipped; the
+   * media clips itself instead. */
+  overflow: visible;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+/* type-color accent bar at the card top — colored by the node's output IO type
+ * (React Flow tags each node with .react-flow__node-<type>). An explicit `accent`
+ * prop on NodeShell overrides via inline style. */
+.nodecard__accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  background: transparent;
+  pointer-events: none;
+  z-index: 1;
+}
+.react-flow__node-gen_text .nodecard__accent,
+.react-flow__node-script_input .nodecard__accent,
+.react-flow__node-audio_transcribe .nodecard__accent {
+  background: var(--c-port-text);
+}
+.react-flow__node-gen_image .nodecard__accent,
+.react-flow__node-grid .nodecard__accent {
+  background: var(--c-port-image);
+}
+.react-flow__node-gen_video .nodecard__accent,
+.react-flow__node-storyboard_shot .nodecard__accent {
+  background: var(--c-port-video);
+}
+.react-flow__node-gen_audio .nodecard__accent {
+  background: var(--c-port-audio);
+}
+.react-flow__node:hover .nodecard {
+  border-color: var(--node-card-border-hover, #474b52);
+}
+.nodecard--selected,
+.react-flow__node:hover .nodecard--selected {
+  border-color: var(--c-accent, #14b8a6);
+  box-shadow: 0 0 0 3px rgba(127, 93, 255, 0.18);
+}
+.nodecard__media {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 11px;
+  background: var(--node-card-bg, #232529);
+}
+
+/* ---- Node empty-state placeholder: muted, non-purple, theme-aware ---- */
+.node-ph {
+  width: 100%;
+  height: 100%;
+  background: var(--node-placeholder, linear-gradient(135deg, #2a2e36 0%, #383d47 100%));
+}
+
+/* ---- Group container (打组) ---- */
+.groupnode {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  border: 1.5px dashed #4a4a4a;
+  background: rgba(127, 93, 255, 0.05);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.react-flow__node:hover .groupnode {
+  border-color: #5a5a5a;
+}
+.groupnode--selected {
+  border-color: var(--c-accent, #14b8a6);
+  background: rgba(127, 93, 255, 0.1);
+}
+.groupnode__label {
+  position: absolute;
+  top: -22px;
+  left: 2px;
+  font-size: 12px;
+  color: #919191;
+  white-space: nowrap;
+  cursor: text;
+}
+.groupnode__label-input {
+  position: absolute;
+  top: -25px;
+  left: 0;
+  width: 140px;
+  padding: 1px 6px;
+  font-size: 12px;
+  border: 1px solid var(--c-accent, #14b8a6);
+  border-radius: 6px;
+  background: var(--node-card-bg, #232529);
+  color: var(--color-text-primary, #f2f4f8);
+  outline: none;
+}
+
+/* ---- Ports: one accent dot per side, fans out to many edges, no "+" ---- */
+/* Large hover-revealed "+" connect buttons on each side (TapNow-style). */
+.react-flow__handle.node-port {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  background: var(--node-card-bg, #232529);
+  border: 1.5px solid var(--node-card-border-hover, #646b7d);
+  color: var(--color-text-secondary, #9aa3b5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 140ms ease, transform 120ms ease, top 90ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.react-flow__handle.node-port .node-port__plus {
+  pointer-events: none;
+}
+/* push the button just outside the card edge; `top` follows the cursor (--port-y) */
+.react-flow__handle.node-port--in {
+  top: var(--port-y, 50%);
+  transform: translate(-78%, -50%);
+}
+.react-flow__handle.node-port--out {
+  top: var(--port-y, 50%);
+  transform: translate(78%, -50%);
+}
+.react-flow__node:hover .react-flow__handle.node-port,
+.react-flow__node.selected .react-flow__handle.node-port {
+  opacity: 1;
+}
+.react-flow__handle.node-port--in:hover { transform: translate(-78%, -50%) scale(1.12); }
+.react-flow__handle.node-port--out:hover { transform: translate(78%, -50%) scale(1.12); }
+.react-flow__handle.node-port:hover {
+  background: var(--c-accent, #14b8a6);
+  border-color: var(--c-accent, #14b8a6);
+  color: #fff;
+}
+.react-flow__handle.node-port.connectingfrom,
+.react-flow__handle.node-port.connectingto {
+  opacity: 1;
+  background: var(--c-accent, #14b8a6);
+  border-color: var(--c-accent, #14b8a6);
+  color: #fff;
+}
+
+/* ---- Edges: colored by data_type (set inline), animated when selected ---- */
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
+  animation: nifEdgeFlow 0.5s linear infinite;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+@keyframes nifEdgeFlow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* ---- Media node corner resize handles (image / video, aspect-locked) ---- */
+.react-flow__resize-control.noderz-corner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--node-card-bg, #232529);
+  border: 2px solid var(--c-accent, #14b8a6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 140ms ease, transform 120ms ease;
+}
+.react-flow__node:hover .react-flow__resize-control.noderz-corner,
+.react-flow__resize-control.noderz-corner:hover {
+  opacity: 1;
+}
+.react-flow__resize-control.noderz-corner:hover {
+  transform: scale(1.18);
+}
+.react-flow__resize-control.noderz-corner.top.left { cursor: nwse-resize; }
+.react-flow__resize-control.noderz-corner.top.right { cursor: nesw-resize; }
+.react-flow__resize-control.noderz-corner.bottom.left { cursor: nesw-resize; }
+.react-flow__resize-control.noderz-corner.bottom.right { cursor: nwse-resize; }
+
+/* ---- Cursor-spotlight dot backdrop (behind the transparent React Flow) ---- */
+.cv-board { position: relative; width: 100%; height: 100%; }
+.cv-board .react-flow { position: relative; z-index: 1; background: transparent; }
+.cv-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  --bs: 24px;
+  --ox: 0px;
+  --oy: 0px;
+  --mx: 50%;
+  --my: 50%;
+  --dr: 1px;
+  --r: 200px;
+  background-image: radial-gradient(circle, var(--dot-base, rgba(255, 255, 255, 0.05)) var(--dr), transparent calc(var(--dr) + 0.7px));
+  background-size: var(--bs) var(--bs);
+  background-position: var(--ox) var(--oy);
+}
+.cv-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--dot-bright, rgba(255, 255, 255, 0.5)) var(--dr), transparent calc(var(--dr) + 0.7px));
+  background-size: var(--bs) var(--bs);
+  background-position: var(--ox) var(--oy);
+  -webkit-mask-image: radial-gradient(circle var(--r) at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.4) 55%, transparent 80%);
+  mask-image: radial-gradient(circle var(--r) at var(--mx) var(--my), #000 0%, rgba(0, 0, 0, 0.4) 55%, transparent 80%);
+}

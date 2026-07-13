@@ -1,0 +1,92 @@
+name: xgcanvas-dev
+
+# Complete local development stack: source hot reload + local PostgreSQL/Redis.
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18-alpine}
+    environment:
+      POSTGRES_USER: xgcanvas
+      POSTGRES_PASSWORD: xgcanvas
+      POSTGRES_DB: xgcanvas
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-18-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xgcanvas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:8-alpine}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6381}:6379"
+    volumes:
+      - redis-8-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  canvas-api:
+    build:
+      context: .
+      dockerfile: apps/canvas-api/Dockerfile
+      target: dev
+    environment:
+      NODE_ENV: development
+      PORT: "5181"
+      DATABASE_URL: postgresql://xgcanvas:xgcanvas@postgres:5432/xgcanvas
+      REDIS_URL: redis://redis:6379
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-http://localhost:5180}"
+      DEMO_MODE: "${DEMO_MODE:-false}"
+      DREAMINA_CLI_PATH: /usr/local/bin/dreamina
+    command: sh -c "pnpm db:migrate && pnpm --filter @xgcanvas/canvas-api dev"
+    ports:
+      - "127.0.0.1:${CANVAS_API_PORT:-5181}:5181"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/canvas-api/src:/app/apps/canvas-api/src
+      - ./config:/app/config
+      - ./database/migrations:/app/database/migrations
+      - ./packages/shared-types/src:/app/packages/shared-types/src
+      - ./packages/shared-types/dist:/app/packages/shared-types/dist
+      - ./packages/adapters-contract/src:/app/packages/adapters-contract/src
+      - ./packages/adapters-contract/dist:/app/packages/adapters-contract/dist
+      - encryption-data:/var/lib/xgcanvas/secrets
+      - dreamina-data:/root/.dreamina_cli
+      - dreamina-share-data:/root/.local/share/dreamina
+
+  canvas-web:
+    build:
+      context: .
+      dockerfile: apps/canvas-web/Dockerfile
+      target: base
+    command: pnpm --filter @xgcanvas/canvas-web dev -- --host 0.0.0.0
+    environment:
+      CANVAS_API_URL: http://canvas-api:5181
+    ports:
+      - "127.0.0.1:${CANVAS_WEB_PORT:-5180}:5180"
+    depends_on:
+      canvas-api:
+        condition: service_healthy
+    volumes:
+      - ./apps/canvas-web/src:/app/apps/canvas-web/src
+
+volumes:
+  postgres-18-data:
+  redis-8-data:
+  encryption-data:
+  dreamina-data:
+  dreamina-share-data:

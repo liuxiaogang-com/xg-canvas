@@ -1,0 +1,7 @@
+/* Shared UI primitives — used by canvas-web instead of antd.
+ * Barrel: split by component family so each file stays well under the
+ * 400-line iron rule. Consumers keep importing only this file. */
+
+@import './controls.css';
+@import './overlays.css';
+@import './feedback.css';

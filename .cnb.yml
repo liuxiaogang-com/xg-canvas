@@ -1,0 +1,128 @@
+main:
+  pull_request:
+    - name: verify
+      ifModify:
+        - .cnb.yml
+        - .dockerignore
+        - eslint.config.mjs
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - docker-compose.yml
+        - docker-compose.dev.yml
+        - apps/**
+        - packages/**
+        - config/**
+        - database/**
+        - scripts/**
+      docker:
+        image: node:22-alpine
+      services:
+        - docker
+      env:
+        CI: 'true'
+      stages:
+        - name: install
+          script: |
+            set -eu
+            npm install --global pnpm@9.15.0 --registry=https://registry.npmmirror.com
+            pnpm config set registry https://registry.npmmirror.com
+            pnpm install --frozen-lockfile
+
+        - name: quality-gates
+          script: |
+            set -eu
+            pnpm ci:verify
+
+        - name: validate-compose
+          script: |
+            set -eu
+            docker compose -f docker-compose.yml config --quiet
+            docker compose -f docker-compose.dev.yml config --quiet
+
+  push:
+    - name: verify-build-and-publish-images
+      ifModify:
+        - .cnb.yml
+        - .dockerignore
+        - eslint.config.mjs
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - docker-compose.yml
+        - docker-compose.dev.yml
+        - apps/**
+        - packages/**
+        - config/**
+        - database/**
+        - scripts/**
+      docker:
+        image: node:22-alpine
+      services:
+        - docker
+      lock:
+        key: xg-canvas-latest-images
+        wait: true
+        cancel-in-progress: true
+        cancel-in-wait: true
+      env:
+        CI: 'true'
+        CANVAS_API_IMAGE: '${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/canvas-api:latest'
+        CANVAS_WEB_IMAGE: '${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/canvas-web:latest'
+        CANVAS_API_REVISION_IMAGE: '${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/canvas-api:${CNB_COMMIT}'
+        CANVAS_WEB_REVISION_IMAGE: '${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/canvas-web:${CNB_COMMIT}'
+      stages:
+        - name: install
+          script: |
+            set -eu
+            npm install --global pnpm@9.15.0 --registry=https://registry.npmmirror.com
+            pnpm config set registry https://registry.npmmirror.com
+            pnpm install --frozen-lockfile
+
+        - name: quality-gates
+          script: |
+            set -eu
+            pnpm ci:verify
+
+        - name: validate-compose
+          script: |
+            set -eu
+            docker compose -f docker-compose.yml config --quiet
+            docker compose -f docker-compose.dev.yml config --quiet
+
+        - name: pull-previous-inline-cache
+          script: |
+            docker pull "$CANVAS_API_IMAGE" || true
+            docker pull "$CANVAS_WEB_IMAGE" || true
+
+        - name: build-canvas-api
+          script: |
+            set -eu
+            docker build --pull --platform linux/amd64 \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              --cache-from "$CANVAS_API_IMAGE" \
+              --label org.opencontainers.image.source="https://cnb.cool/${CNB_REPO_SLUG_LOWERCASE}" \
+              --label org.opencontainers.image.revision="$CNB_COMMIT" \
+              -f apps/canvas-api/Dockerfile \
+              -t "$CANVAS_API_IMAGE" .
+
+        - name: build-canvas-web
+          script: |
+            set -eu
+            docker build --pull --platform linux/amd64 \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              --cache-from "$CANVAS_WEB_IMAGE" \
+              --label org.opencontainers.image.source="https://cnb.cool/${CNB_REPO_SLUG_LOWERCASE}" \
+              --label org.opencontainers.image.revision="$CNB_COMMIT" \
+              -f apps/canvas-web/Dockerfile \
+              -t "$CANVAS_WEB_IMAGE" .
+
+        - name: push-revision-and-latest-images
+          script: |
+            set -eu
+            docker tag "$CANVAS_API_IMAGE" "$CANVAS_API_REVISION_IMAGE"
+            docker tag "$CANVAS_WEB_IMAGE" "$CANVAS_WEB_REVISION_IMAGE"
+            docker push "$CANVAS_API_REVISION_IMAGE"
+            docker push "$CANVAS_WEB_REVISION_IMAGE"
+            docker push "$CANVAS_API_IMAGE"
+            docker push "$CANVAS_WEB_IMAGE"

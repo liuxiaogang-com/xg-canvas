@@ -1,0 +1,305 @@
+/* Auth (login/register) — split hero + form. Token-driven, theme-aware.
+ * Left: branded aurora hero (hidden on narrow screens). Right: the form card. */
+
+.auth-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: auto;
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+}
+
+/* ============================ HERO (left) ============================ */
+.auth-hero {
+  position: relative;
+  flex: 1.1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-12) clamp(var(--space-10), 6vw, 88px);
+  border-right: 1px solid var(--color-border-subtle);
+  isolation: isolate;
+}
+
+/* aurora glow blobs (brand gradient, decorative) */
+.auth-hero__glow {
+  position: absolute;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(42% 38% at 22% 26%, color-mix(in srgb, var(--color-canvas-accent) 42%, transparent), transparent 70%),
+    radial-gradient(40% 42% at 82% 72%, color-mix(in srgb, var(--color-cyan) 26%, transparent), transparent 68%),
+    radial-gradient(38% 40% at 62% 20%, color-mix(in srgb, var(--color-pink) 16%, transparent), transparent 72%);
+  filter: saturate(1.15);
+  animation: auth-drift 22s ease-in-out infinite alternate;
+}
+
+/* canvas dot grid — echoes the node backdrop */
+.auth-hero__grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(var(--dot-base) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(120% 120% at 30% 40%, #000 30%, transparent 78%);
+}
+
+.auth-hero__content {
+  max-width: 460px;
+}
+
+.auth-hero__pitch {
+  margin: var(--space-8) 0 0;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.24;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+.auth-hero__pitch em {
+  font-style: normal;
+  background: linear-gradient(96deg, var(--color-canvas-accent), var(--color-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.auth-hero__sub {
+  margin: var(--space-4) 0 0;
+  max-width: 40ch;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.auth-features {
+  margin: var(--space-10) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  list-style: none;
+  padding: 0;
+}
+.auth-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+}
+.auth-feature__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  color: var(--color-canvas-accent-soft);
+  background: color-mix(in srgb, var(--color-canvas-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-canvas-accent) 26%, transparent);
+}
+.auth-feature strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.auth-hero__foot {
+  position: relative;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+/* ============================ BRAND lockup ============================ */
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.auth-brand__mark {
+  width: 38px;
+  height: 38px;
+  filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--color-canvas-accent) 45%, transparent));
+}
+.auth-brand__word {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(96deg, var(--color-canvas-accent), var(--color-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================ FORM (right) ============================ */
+.auth-panel {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 384px;
+  animation: auth-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* mobile-only brand (hero hidden) */
+.auth-card__brand {
+  display: none;
+  margin-bottom: var(--space-6);
+}
+
+.auth-card__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.auth-card__hint {
+  margin: 6px 0 var(--space-6);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.auth-card .seg {
+  width: 100%;
+}
+.auth-card .seg__btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.auth-forms {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.auth-loading {
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+}
+.auth-forms .field + .field {
+  margin-top: var(--space-3);
+}
+
+/* focus ring — accent halo (ui-017) */
+.auth-card .input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* primary CTA lift + glow, press feedback (ui-yikgd9) */
+.auth-card .btn {
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease,
+    box-shadow 140ms ease, transform 120ms ease, filter 140ms ease;
+}
+.auth-card .gradient-btn {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-canvas-accent) 30%, transparent);
+}
+.auth-card .gradient-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--color-canvas-accent) 42%, transparent);
+}
+.auth-card .btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+/* divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-subtle);
+}
+
+/* dev / demo footer — deliberately quiet */
+.auth-dev {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.auth-dev__label {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+.auth-dev .btn--ghost {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* ============================ responsive ============================ */
+@media (max-width: 960px) {
+  .auth-hero {
+    display: none;
+  }
+  .auth-card__brand {
+    display: block;
+  }
+}
+
+/* ============================ motion ============================ */
+@keyframes auth-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2%, -2%, 0) scale(1.06);
+  }
+}
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-hero__glow,
+  .auth-card,
+  .auth-step {
+    animation: none;
+  }
+}
+.auth-config-error {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+.auth-setup-notice {
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border-subtle));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-surface));
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
