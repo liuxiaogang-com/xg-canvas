@@ -16,4 +16,5 @@ node_modules
 .codex
 .github
 apps/canvas-site
+/web-site/
 docs

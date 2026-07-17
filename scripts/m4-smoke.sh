@@ -4,7 +4,7 @@
 # Prerequisites:
 #   - account-api + canvas-api up
 #   - canvas schema migrated (M2) + entities table populated
-#   - openai-compat credential available (extract uses gpt-4o-mini)
+#   - script-extract Feature Config bound to a currently available gen.text model
 
 set -euo pipefail
 
