@@ -4,7 +4,7 @@
 
 ## 1. 服务拓扑
 
-M6 之后项目是模块化单体：
+项目当前采用模块化单体：
 
 ```text
 canvas-web (5180, React + /settings)
@@ -57,24 +57,52 @@ canvas-api (5181, NestJS)
 
 ### account
 
-- `providers`
-- `channels`
 - `credentials`
-- `model_definitions`
-- `model_channel_mappings`
-- `encryption_keys`
-- `feature_model_configs`
+- `feature_model_configs`, `feature_model_bindings`
+- `catalog_sources`, `catalog_releases`, `catalog_resources`
+- `catalog_resource_revisions`, `catalog_release_entries`, `catalog_runtime_state`
+- `provider_installations`, `channel_installations`, `model_settings`
 - `system_settings`（对象存储等运行期集成配置；Secret 加密存储）
 - `instance_setup`（首次部署状态；完成后不可逆，不保存初始化口令）
 
-模型注册表为双源：
+Catalog 构建链路为 `config/model-catalog.yaml + model-providers/**/*.yaml + schema-templates/**/*.yaml`
+经 `@xgcanvas/model-catalog` 编译为确定性 `model-catalog.bundle.json`。运行时不扫描作者 YAML；
+`CatalogImportService` 幂等导入官方 Release，`RegistrySnapshotFactory` 合成 Active Official
+Revisions、Local Heads、Runtime Settings 与 Credential。Catalog Revision 是 Provider、Channel、
+Model 和 Rate Card 的唯一结构真相；不维护任何结构镜像表。Credential 直接引用稳定的 Channel
+`resource_uid`。
 
-- `source=preset`：由 `config/model-providers/*.yaml` 同步，reload 会刷新。
-- `source=manual`：后台新增或厂商 `/models` 导入，reload 不覆盖。
+Runtime Settings 只分为 `provider_installations`（启停、排序、Provider 运营覆盖）、
+`channel_installations`（启停、优先级、Channel 运营覆盖）和 `model_settings`（启停、
+可见性、排序）。结构关系、能力、参数 Schema 与价格都只来自 Revision。
 
-`model_definitions.input_contract` 声明生成模型支持的 `mode` 与素材 `slot`。YAML、后台写入与 DB 读取均经过同一套运行时结构校验，非法历史行不会进入注册表或公开模型列表；空对象表示未声明契约。它只约束输入形态，不参与“可用模型”判断。
+Provider 和 Channel Revision 都声明非空 `adapter_keys`；Channel 只能使用 Provider 已声明的
+Adapter。Model Revision 必须声明一个 `adapter_key` 和非空 `allowed_channel_uids`，且每个允许的
+Channel 必须属于同一 Provider，并支持该 Adapter。不存在空 Channel 集合通配或按名称猜协议。
 
-“可用模型”的统一定义：模型和 provider 已启用，且该 provider 下存在启用的 channel 与启用的 credential。不要求 credential 已验证或未过期；验证状态只作为运营提示。
+`RegistryBootstrapService` 用进程内队列、`SERIALIZABLE` 事务、PostgreSQL advisory lock 和候选
+Snapshot 串行化重载/本地写入；事务提交后才单次替换 `RegistryService` 引用。当前只保证单 API
+进程原子切换，多副本通知尚未实现。
+
+Model Revision 的 `input_contract` 声明生成 mode 与素材 slot。Bundle 编译、本地 Revision 写入与
+Snapshot 构建都严格校验 shared-types 规范值、Param Contract V1、Input Contract V1 与 components
+Pricing；对象未知字段、隐式必填、空/通配 Channel、重复 meter 和非法 Adapter 图都会 fail closed。
+跨 Source Provider slug、同 Provider Channel slug 或全局 model_id 冲突同样拒绝；历史 Pin 索引中的
+损坏 Revision、`content_digest` 不一致或仍 active 但未被当前 Model 反向引用的 Rate Card 不能被
+跳过后继续发布部分 Snapshot。
+统一可用性还要求 Model/Provider/允许 Channel 的当前 Revision 可用且三类 Settings 均启用。Live
+模式还要求候选 Channel 下存在启用 Credential，但不检查其验证状态或过期时间；Demo 模式只豁免
+Credential 要求。公开列表按当前执行模式应用同一门禁，并额外要求 `visibility=public`。
+
+Feature Config 只保存有序 `model_resource_uid` 绑定。功能所需 task type 由代码拥有的 Feature
+Contract 决定，当前 `ai-analysis`、`agent`、`script-extract` 均为 `gen.text`；保存与运行时解析都会
+拒绝不兼容 Model，管理请求不能重定义该能力。
+
+设置页按权限用途读取 Catalog：Feature Config 使用 `system.config.manage` 的最小 Model Options，
+凭证页使用 `system.credential.manage` 的 Credential Catalog 投影；二者不借用
+`system.model.manage` 的完整管理 API。凭证接入必须指定一个已有 Channel，并在单次
+`RegistryBootstrapService.mutateLocal` 中原子完成 Provider/Channel 启用、Credential 保存、Vendor
+Model Local Revision 创建和所选官方 Model 启用。
 
 ### canvas
 
@@ -90,8 +118,8 @@ canvas-api (5181, NestJS)
 `canvas.library_entries` 是统一资源库(人物库/音色库/风格库),用判别式 `kind` 区分类型,
 双绑定形态共存:`material`(我们桶里的自有素材 asset_ids)与 `provider_refs[]`(厂商侧资源,
 如训练音色 id / 授权人像 id)。Provider binding 是 credential-scoped server state，至少携带
-`binding_id/provider/channel_id/credential_id/status`；只有精确候选凭证下的 `ready` 记录可调用，
-legacy JSON fail closed。普通 Library API 会脱敏并隐藏凭证路由/验证参数。可见性与 `assets` 一致
+`binding_id/provider_resource_uid/channel_resource_uid/credential_id/status`；只有精确候选凭证下的 `ready` 记录可调用，
+非规范 JSON fail closed。普通 Library API 会脱敏并隐藏凭证路由/验证参数。可见性与 `assets` 一致
 (`private | project | workspace`)。
 剧本角色实体 `canvas.entities` 通过 `library_entry_id` **引用**库条目(叙事对象与可复用资源解耦,
 不合表):entities 仍是项目内叙事对象,库条目可跨项目复用。`canvas.favorites(user_id,
@@ -106,24 +134,43 @@ server binding 的 `metadata.library.provider_refs`,详见
 pending | queued | running | succeeded | failed | cancelled
 ```
 
+Task 创建时保存 `model_resource_uid/model_revision_id/rate_card_revision_id/catalog_epoch/execution_mode`。
+所有 Task（包括 Demo）在创建时固定 Revision。`execution_mode=demo` 在选模时只豁免 Credential
+门禁并选择 MockExecutor，仍要求当前 Revision、Runtime Settings、allowed Channel 与 Adapter 契约
+成立。固定 Revision 无法解析时以 `CATALOG_REVISION_MISSING` 失败，不能静默切到当前模型。
+
+真实分发前 Task 写入 `invoke_logical_request_id/invoke_prepared_at`，物理 Request Log 在调用 Adapter
+前保存精确 `channel_resource_uid/channel_revision_id/channel_route/credential_id`；Task 成功或异步
+响应被接受后保存同一精确路由，异步响应还保存 `invoke_request_id/external_task_id`。Poll、Cancel 与
+崩溃恢复复用该精确路由，不读取当前 Channel
+Head 或重新选择 Credential。未知分发结果按 at-most-once 处理，不自动重放写请求。
+
 ### ops
 
-- `request_logs`
+- `request_logs`（包含逻辑调用、物理 attempt、Model/Rate Card Pin、精确 Channel 路由与冻结成本）
 
-请求日志记录 request-id、provider/model/channel/credential 维度、脱敏请求/响应、错误信息、用量与冻结成本。
+`logical_request_id` 关联一次逻辑 Invoke；每个真实厂商调用使用独立 `id + attempt_no`。物理 attempt
+必须先以 `pending` 落库再分发，账本写失败则禁止调用厂商。Registry/参数等 preflight 失败使用
+`attempt_no=null` 且必须直接写终态；任何 `pending` 行都必须是带完整 Task/Model/Channel/Credential Pin
+的物理 attempt。Billing 只统计 `source=invoke AND attempt_no IS NOT NULL`，且只给成功 attempt 按固定
+Rate Card Revision 计算原生币种成本。
+
+通用厂商 HTTP 使用统一受保护传输：只允许公网 HTTPS，校验全部 DNS 结果并固定连接 IP，携带
+Credential 的请求禁止重定向；第三方资产重定向每跳重验且跨 origin 删除敏感头。响应体按 JSON、
+错误、SSE 和资产分别设置流式硬上限。Dreamina CLI 下载的是本服务从当前对象存储生成、并再次校验
+origin、bucket path 和签名参数的临时 URL；该受信对象存储通道与任意 Vendor URL 分开处理。
 
 ## 5. Redis 命名空间
 
 全局 keyPrefix 为 `xgcanvas:`。
 
-| 用途              | key                                           |
-| ----------------- | --------------------------------------------- |
-| registry revision | `xgcanvas:cache:registry:v1`                  |
-| session liveness  | `xgcanvas:session:<token_sha256_hex>`         |
-| revoked session   | `xgcanvas:session:revoked:<token_sha256_hex>` |
-| authz cache       | `xgcanvas:authz:caps:*`                       |
-| task progress     | `xgcanvas:task:progress:<task_id>`            |
-| rate limit        | `xgcanvas:ratelimit:<channel_id>:<window>`    |
+| 用途              | key                                                  |
+| ----------------- | ---------------------------------------------------- |
+| registry metadata | `xgcanvas:registry:revision`                         |
+| session liveness  | `xgcanvas:session:<token_sha256_hex>`                |
+| revoked session   | `xgcanvas:session:revoked:<token_sha256_hex>`        |
+| authz cache       | `xgcanvas:authz:caps:*`                              |
+| task progress     | `xgcanvas:task:progress:<task_id>`                   |
 
 ## 6. 资产存储
 
@@ -200,10 +247,10 @@ account 子系统调用为进程内 service 调用，不再暴露 `/internal/v1/
 实例未完成初始化时，除健康检查和 Setup API 外，业务 API、普通注册与登录均不可用。
 无 Token 模式以“部署者先完成初始化、再开放公网入口”为安全边界；不能保证尚未初始化且已暴露
 到不可信网络的实例不被抢先认领。初始化完成后 `completed_at` 成为不可逆事实，Setup API
-永久关闭；已有 Owner/超管的旧实例会被自动标记为已初始化，不会重新开放 Setup。管理员可在
+永久关闭。管理员可在
 个人中心绑定微信、飞书等其他身份，本地密码身份保留为 break-glass 登录方式。
 
-旧库若已有用户但没有活动 Owner/超管，服务必须 fail-closed 并提示运维通过
+已完成初始化的实例若没有活动 Owner/超管，服务必须 fail-closed 并提示运维通过
 `recover:instance-owner` 离线指定一个已存在账号；不得退回匿名“首个请求认领”。
 
 `/api/v1/auth/email/code`、`/api/v1/me/identities/bind/email/code` 和
@@ -242,12 +289,17 @@ docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
 公开部署目前统一使用持续更新的 `latest` 标签。当前应用镜像只构建 `linux/amd64`，ARM 设备
 尚未完成兼容验证。应用镜像保留 `pull_policy: always`，确保重新部署会检查并拉取最新制品。
 
+应用 Dockerfile 在 clean build context 中先构建 workspace contracts 与 `@xgcanvas/model-catalog`，
+再运行 `catalog:build`；最终 API 镜像携带生成后的 Bundle，不依赖宿主机 `dist` 或作者 YAML 热加载。
+
 正式编排同时使用 Docker Hub 官方 PostgreSQL 18、Redis 8 镜像集成数据库、缓存与迁移。
 无需 `.env` 即可启动；宿主机只暴露 Web 端口，内部数据库账号只用于隔离的 Compose 网络。
 对象存储仍使用管理员在后台配置的远程 S3/R2 兼容桶。
 
-PostgreSQL 18 数据卷挂载在 `/var/lib/postgresql`。旧 PostgreSQL 16 volume 不能直接挂给
-PostgreSQL 18；已有部署升级时必须先备份，再通过 dump/restore 迁移。
+PostgreSQL 18 数据卷挂载在 `/var/lib/postgresql`。当前 Beta 的 Catalog-native 基线只接受全新
+数据库，不能复用此前任何 PostgreSQL volume 或 dump；需要保留的数据必须由部署者另行导出。
+迁移脚本遇到已有结构会 fail closed，Compose 也不会自动删除 volume。该基线公开后，后续结构
+变更恢复追加式迁移。
 
 `docker-compose.dev.yml` 是可独立启动的本地开发栈，包含 PostgreSQL 18、Redis 8、源码热加载的
 canvas-api 与 canvas-web，不创建 `.env` 也能启动。两个编排都为自动生成的根密钥挂载独立

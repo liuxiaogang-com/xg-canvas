@@ -24,6 +24,7 @@ Codex 会在每次会话/任务启动时自动读取本文件，并按当前工�
 - 改主题/颜色/间距： [docs/design-tokens.md](docs/design-tokens.md)
 - 加节点 / 改 IO 类型： [docs/node-spec.md](docs/node-spec.md)
 - 加 Provider / Model： [docs/adapter-guide.md](docs/adapter-guide.md)
+- 改模型目录身份、修订、Release 或热加载： [docs/model-catalog.md](docs/model-catalog.md)
 - 改 Agent / 工具调用： [docs/agent-spec.md](docs/agent-spec.md)
 - 改任务流程 / 重试 / 资产： [docs/task-lifecycle.md](docs/task-lifecycle.md)
 - 加 API： [docs/api-conventions.md](docs/api-conventions.md)
@@ -40,9 +41,9 @@ Codex 会在每次会话/任务启动时自动读取本文件，并按当前工�
 
 - 前端：Vite + React 18 + TypeScript；`canvas-web` 用 React Flow + 原生 UI 组件；管理页并入 `/settings`
 - 后端：NestJS 单体 `canvas-api`，内含 `src/account` 子系统；即梦 CLI 由 `DreaminaCliRunner` 在 server 内直接 spawn
-- 数据：PostgreSQL(双 schema: `account` / `canvas`)、Redis(全局 `xgcanvas:` 前缀)、远程 S3/R2 兼容桶
+- 数据：PostgreSQL（三个 schema：`account` / `canvas` / `ops`）、Redis（全局 `xgcanvas:` 前缀）、远程 S3/R2 兼容桶
 - Monorepo：pnpm workspaces
-- 共享包：`@xgcanvas/shared-types` / `@xgcanvas/adapters-contract` / `@xgcanvas/constraint-engine` / `@xgcanvas/ui-kit`
+- 共享包：`@xgcanvas/shared-types` / `@xgcanvas/adapters-contract` / `@xgcanvas/constraint-engine` / `@xgcanvas/model-catalog` / `@xgcanvas/ui-kit`
 
 ## 服务拓扑
 
@@ -60,12 +61,12 @@ canvas-api -> PostgreSQL / Redis / 远程 S3/R2
    - 业务模块调模型/厂商必须经过 `account-client` 接缝，不直接 import `src/account/*` 内部实现。
    - 即梦 CLI 统一由 `DreaminaCliRunner` 封装，adapter 通过 DI 注入使用。
    - 前端永远拿我们对象存储的预签名 URL，不拿第三方 CDN。
-3. Code-first Adapter + 双源模型注册表：预置模型来自 `config/model-providers/` YAML，手动模型来自 DB，二者合并进同一个运行时注册表。
+3. Code-first Adapter + 版本化 Model Catalog：Catalog Revision 是 Provider、Channel、Model 与 Rate Card 的唯一结构真相；官方 YAML 只在构建期编译为确定性 Bundle，运行时由 Active Official Revisions、Local Heads、三张 Runtime Settings 与 Credential 合成一个不可变 Snapshot，禁止直接扫描作者 YAML 或维护结构镜像表。
 4. 任务即真相：任何长任务先落 `tasks` 表，刷新页面不丢；worker 用 `SELECT ... FOR UPDATE SKIP LOCKED` 拿单。
 5. 资产先落桶：Adapter 拿到第三方结果后必须经 `_shared/asset-downloader` 下载到远程 S3/R2 兼容桶，再返回本地资产描述。
 6. Redis 全局前缀是 `xgcanvas:`，所有客户端必须经 `RedisModule`，禁止 `new Redis()`。
-7. “可用模型”的统一定义：后台已配置凭证且凭证开启，同时 provider/channel/model 开启；不要求凭证校验通过或未过期。
-8. 模型启用规则：导入 preset 后默认不全量启用；凭证向导只启用用户勾选的 preset。手动模型引用家族模板并做少量 override，避免在 DB 手搓大段 `param_schema`。
+7. 模型可用性统一经过 `ModelAvailabilityService`：当前 Model/Provider/允许的 Channel Revision 均可用于新任务，且 `model_settings/provider_installations/channel_installations` 均启用。Live 模式还要求候选 Channel 下存在启用凭证，但不要求凭证校验通过或未过期；Demo 模式只豁免凭证要求。公开列表按当前执行模式应用同一门禁，并额外要求 `visibility=public`。
+8. 模型启用规则：新官方资源的 Runtime Settings 默认关闭；凭证向导必须明确绑定一个允许的 Channel，并在同一次 `RegistryBootstrapService.mutateLocal` 事务中保存凭证、导入所选本地模型和启用所选官方模型。本地结构修改只能追加 Revision并原子切换 Snapshot。`slug/model_id` 创建后不可修改；换标识必须创建新资源并 Retire 原资源。
 9. 即梦 CLI 必须随 server/Docker 镜像打包，登录态由 volume 持久化；旧 `account-cli-bridge` 相关代码和配置不再恢复。
 10. 不主动写 README.md / 中间总结文档，除非用户明确要求。
 11. 改行为先改文档：`docs/` 中相关 spec 与代码必须同步。
@@ -81,8 +82,10 @@ packages/
 ├── shared-types/
 ├── adapters-contract/
 ├── constraint-engine/
+├── model-catalog/
 └── ui-kit/
 config/
+├── model-catalog.yaml
 ├── model-providers/
 └── schema-templates/
 database/migrations/{account,canvas,ops}/

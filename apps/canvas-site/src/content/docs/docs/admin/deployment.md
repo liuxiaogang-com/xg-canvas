@@ -34,14 +34,14 @@ docker.cnb.cool/liuxiaogang/xg-canvas/canvas-api:latest
 docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
 ```
 
-无需创建 `.env`，首次部署或更新时运行：
+无需创建 `.env`，首次部署时运行：
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-部署编排只暴露 Web 端口，会先等待数据库健康并执行追加式迁移，再启动 API 与 Web。根密钥
+部署编排只暴露 Web 端口，会先等待数据库健康并初始化当前 Beta 数据库结构，再启动 API 与 Web。根密钥
 自动生成并持久化；对象存储和 Provider 凭证在首次登录后的 `/settings` 中配置。Compose 对
 `latest` 应用镜像设置了 `pull_policy: always`，部署时仍建议显式执行上述 `pull` 命令。
 
@@ -55,8 +55,9 @@ docker compose up -d
 
 `canvas-site` 是独立静态站点，不属于自托管产品的运行依赖。它可部署到任意静态托管或 CDN。
 
-## 升级
+## Beta 升级
 
-Beta 阶段尚未承诺无损升级。升级前应阅读 Changelog，并同时备份数据库、对象存储和
-keyring 卷，再在测试环境验证迁移。PostgreSQL 18 使用 `/var/lib/postgresql` volume；不要把
-旧 PostgreSQL 16 数据卷直接复用到新容器，应通过 dump/restore 迁移。
+当前 Catalog-native Beta 基线是一次破坏性重置，必须使用新的 PostgreSQL 数据库或
+`/var/lib/postgresql` volume。此前 Beta 的 volume 或 dump 不能复用或恢复到当前 schema；旧数据
+如需留存只能另行导出。已经运行在当前基线上的实例，后续常规更新仍使用上面的 `pull` / `up`
+命令，更新前应同时备份 PostgreSQL、对象存储和 `encryption-data` keyring 卷，并先在测试环境验证。

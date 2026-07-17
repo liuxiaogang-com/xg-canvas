@@ -57,11 +57,14 @@ Owner”的机制，完成后入口永久关闭。不要预置默认管理员账
 keyring，会导致已加密的 Provider/S3 Secret 无法解密。
 
 当前 CNB 镜像只构建 `linux/amd64`，正式部署统一使用持续更新的 `latest` 标签。ARM NAS 尚未
-完成兼容验证。升级前先备份，再执行：
+完成兼容验证。
+
+当前 Catalog-native Beta 基线是一次破坏性重置：此前 Beta 的 PostgreSQL volume 或 dump 不能
+复用或恢复到当前 schema。需要留存的旧数据只能另行导出；部署本基线时必须使用新的数据库或
+新 volume。已经运行在当前基线上的实例，后续常规更新前先同时备份 PostgreSQL、对象存储和
+`encryption-data`，再执行：
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
-
-PostgreSQL 16 的数据卷不能直接用于 PostgreSQL 18，已有部署应通过 dump/restore 迁移。

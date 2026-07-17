@@ -1,24 +1,38 @@
 # model-providers Codex Guide
 
-本目录是预置模型 YAML，属于开源扩展面。改这里时同时遵守根目录 `AGENTS.md` 和 `docs/adapter-guide.md`。
+本目录是 XG Canvas 官方 Model Catalog 的构建期作者文件，不是运行时配置。改这里时同时遵守
+根目录 `AGENTS.md`、`docs/model-catalog.md` 和 `docs/adapter-guide.md`。
 
-## YAML 规则
+## 文件与身份
 
-- 每个生成模型必须声明 `input_contract`，说明支持的 `mode` 和需要的素材 `slot`。
-- `param_schema` 只放真实生成参数，例如尺寸、比例、时长、seed、风格等。
-- 参考图、首尾帧、参考音频、源视频等结构性输入放在 `input_contract`，不要放回 `param_schema`。
-- `task_types` 和 `capabilities` 必须使用 `packages/shared-types/src/model-vocabulary.ts` 中的规范值。
-- provider 的 adapter key 要能在后端 adapter registry 中找到。
+- `config/model-catalog.yaml` 管理官方 Source 和 Release。
+- `model-providers/<provider>/provider.yaml`、`channels.yaml`、`models/*.yaml` 可递归加载。
+- 按模型家族或输入模式拆分；每个作者 YAML 强制不超过 200 行。
+- Provider、Channel、Model 和 Rate Card 必须使用稳定 `resource_uid` 与从 1 递增的 `revision`。
+- 资源改内容必须递增 Revision；同一 Revision 不得对应不同内容。
+- `slug` 与公开 `model_id` 创建后不可修改；需要新标识时创建新的 `resource_uid`，并为原资源发布 `retired` Revision。
+- 发布内容变化时更新 `release_id`、递增 `sequence` 并更新 `published_at`。
 
-## Preset / Manual
+## 契约
 
-- preset YAML 可社区 PR 扩展；manual 模型走 DB。
-- preset reload 可以刷新 DB 中 `source=preset` 行；不得覆盖 `source=manual` 行。
-- 凭证向导只启用用户勾选的 preset，不做 provider 全量自动启用。
+- 每个生成模型必须声明有效的 `input_contract`，说明 mode 和素材 slot。
+- 真实生成参数放 `param_schema`；结构性素材放 `input_contract`；联动规则放 `param_constraints`。
+- `task_types`、`capabilities` 只能使用 shared-types 规范值，不接受历史拼写或同义值。
+- `adapter_key` 必须存在于内置 Adapter capability manifest，且支持模型的 task type/调用模式。
+- `param_schema` 只接受规范紧凑 Schema；不得添加扁平字段兼容转换。
+- inline `pricing` 也是独立 Rate Card，必须有自己的 `resource_uid` 和 `revision`，且只接受 `{ currency, components[] }`。
+- Credential、Secret 和部署实际账号永远不能写入作者 YAML 或 Bundle。
+
+## 生命周期与启用
+
+- `active/deprecated` 可接新任务；`retired` 不接新任务但保留历史固定 Revision；`revoked` 阻断历史执行。
+- 删除官方资源必须发布稳定 UUID 的 `retired/revoked` Revision，不能从下一 Release 静默遗漏。
+- 新官方 Provider、Channel 与 Model 的 Runtime Settings 都默认关闭；凭证向导只启用用户勾选的
+  模型及其明确允许的精确 Channel。
+- 部署者自定义资源属于 Local Source，不写回本目录。
 
 ## 检查
 
-- 改 YAML 后检查 YAML 语法和 registry validator。
-- 改新增字段时同步 `apps/canvas-api/src/account/config-sync/config-sync.types.ts`、manifest validator、docs。
-- 改供应商能力时同步对应 adapter 请求构造和测试。
-
+- 修改后运行 `pnpm catalog:check`。
+- 需要本地生成 Bundle 时运行 `pnpm catalog:build`；Bundle 是忽略的构建产物，不手工编辑。
+- 改供应商能力时同步 Adapter 请求构造、响应解析、契约测试和相关文档。

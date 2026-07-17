@@ -31,6 +31,72 @@ canvas-api TaskPoller
 
 业务模块只经过 `account-client` seam 调用 account 子系统，不直接 import account 内部实现。
 
+### 2.1 Model/Rate Card Revision Pin
+
+公共 Task DTO 不接受 Catalog Pin。`TaskService` 在统一可用性校验后由
+`AccountModelsClient.resolveTaskPin` 写入：
+
+```text
+model_resource_uid
+model_revision_id
+rate_card_revision_id        无 Rate Card 时为 null
+catalog_epoch
+execution_mode               live | demo
+```
+
+`TaskExecutorService`、`TaskPollerService` 和 `TaskTerminalService` 都通过
+`requireTaskModelPin` 读取同一组字段；Invoke/Poll/Cancel 使用
+`RegistryService.requirePinnedEntry` 解析不可变 Revision。Retry 保留原 Pin，不切换到当前新模型。
+真实执行和 Demo 都从同一 Catalog 选模并保存 Pin；`execution_mode=demo` 在选模时只豁免 Credential
+门禁并决定使用 MockExecutor，不能绕过 Revision、Runtime Settings、allowed Channel 或 Adapter
+契约。Pin 缺失或 Revision 已不可执行时返回永久错误 `CATALOG_REVISION_MISSING`。
+
+Model Revision 固定 Adapter、上游模型 ID、Param/Input Contract 和能力；Rate Card Revision 固定
+价格。真实调用前，Task 先保存 `invoke_logical_request_id + invoke_prepared_at`；Invoke 再从该 Model
+明确允许且支持其 `adapter_key` 的 Channel 中选路，并把精确路由写入分发前的物理 Request Log。
+Adapter 返回成功或已接受的异步任务后，Task 再保存：
+
+```text
+invoke_request_id             已接受异步任务时为对应物理 request id
+channel_resource_uid
+channel_revision_id
+channel_route                 分发时的 endpoint/request 配置快照
+credential_id
+external_task_id              异步任务被接受后存在
+```
+
+因此 Model/Rate Card 在创建 Task 时固定，Channel Revision/Route/Credential 在每次真实物理分发日志中
+精确固定，并在 Task 成功或异步作业被接受时写回 Task。
+异步 Poll、Cancel、崩溃恢复都使用已保存的精确路由；即使后台随后禁用 Channel/Credential 或目录 Head
+变化，也不会给已接受的厂商任务重新选路。只有在上一物理尝试已明确终结、准备新执行尝试时才清除
+旧路由。
+
+`channel_route` 只允许保存非密 Endpoint 与 request 配置；`base_url` 和 `request_config` 在 Catalog
+作者、本地 Revision、Runtime override 与 Snapshot 边界统一拒绝 Secret，生成 Task/Request Log
+快照时再深度脱敏兜底。Credential payload 永远不进入路由快照。
+
+`retired` 不允许新任务，但此前固定的 active/deprecated Revision 仍可继续；`revoked` 阻断该资源
+全部历史 Revision。Task 表从基线创建时就要求完整 Pin，执行链路不会按 `model_id` 猜测 Revision。
+
+### 2.2 Logical Invoke 与物理 Attempt
+
+一次 Task 执行尝试先生成稳定 `invoke_logical_request_id`。同一个逻辑调用可能因“明确未被厂商接受”
+而在其他 Channel/Credential 上产生多个物理 attempt；每次物理调用都有自己的
+`ops.request_logs.id` 与从 1 递增的 `attempt_no`。Registry/参数等分发前失败使用
+`attempt_no=null`，不算厂商物理调用。
+
+每个物理 attempt 必须先以 `status=pending` 写入账本，再调用 Adapter；账本写失败时禁止发送厂商
+请求。分发结果分三类：
+
+- `definitely_rejected`：确定没有产生厂商作业，允许按重试策略尝试下一个候选。
+- `outcome_unknown`：超时、断线等情况下可能已被厂商接受；保持账本 `pending`，停止 failover，
+  不自动重放。
+- `accepted`：厂商已返回结果/外部任务，但本地持久化失败；按已接受处理，禁止重放并执行补偿。
+
+通用 HTTP 客户端只默认重试 GET。POST/PUT/DELETE 等写请求默认 `retry=never`；只有调用方能证明
+操作幂等时才能显式标为 safe。Task 的 idempotency key 是厂商支持时的附加保护，不是重放依据。
+这套边界保证未知结果按 at-most-once 处理，优先避免重复生成和重复计费。
+
 ## 3. 取单
 
 Task runner / poller 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 抢占任务。每次领取都写入
@@ -42,19 +108,26 @@ Task runner / poller 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 抢占任务。�
 4. 异步返回 `external_task_id` 后保持 `running` 并设置 `next_poll_at`。
 5. **到期 poll**：poller 领取时同样持有租约；invoke 与 poll 共用 `TASK_CONCURRENCY` 的硬上限；
    执行期间 runner 每 5–10 秒续租（不超过 `TASK_LEASE_MS / 3`）。
-   续租。租约丢失会中止本地请求，迟到的成功/失败结果因 token 不匹配而不能覆盖当前状态。
+   租约丢失会中止本地请求，迟到的成功/失败结果因 token 不匹配而不能覆盖当前状态。
 6. 同步 invoke 在租约过期后由其他实例恢复时沿用当前 `attempt_no` 的幂等键；显式或自动重试
    会产生新的 attempt，避免同一次尝试被厂商重复计费。
 
 ## 4. 输入解析
 
-公开任务 API 只接受声明过的结构字段（`mode/prompt/prompt_doc/negative_prompt/references/audio_url/json`），
+公开任务 API 只接受声明过的结构字段（`mode/prompt/prompt_doc/negative_prompt/references/json`），
 最多 32 条 reference。客户端不能提交 `url`、`mime_type`、本地路径或 adapter/library 内部 metadata：
 
 - `inputs.references[]` 必须且只能带 `asset_id` 或 `library_entry_id` 之一。
-- `inputs.audio_url` 是历史字段名，公开值必须是 asset UUID；服务端解析后才成为内部 URL。
+- `inputs.references[].type` 必填，且必须是规范 reference type；不能从文件名或 MIME 猜类型。
+- 音频与其他素材一样通过 `inputs.references[]` 提交，并显式声明 `type=audio` 与所属 slot。
 - canvas-api 在可见性校验通过后，把 `asset_id` 解析为短期 presigned URL，并保留
-  `slot/type/order/weight`。只有解析后的内部 `ResolvedGenerationReference` 能跨过 account-client seam。
+  `slot/type/order/weight`。签名前还会校验数据库中的权威 Asset `type` 与 `mime_type`：图像类
+  reference 只能引用 image Asset，video/audio/json 同理。只有解析后的内部
+  `ResolvedGenerationReference` 能跨过 account-client seam。
+
+类型映射固定为：`image/image_list/mask/style_token/entity_ref -> image`，`video -> video`，
+`audio -> audio`，`json -> json`（MIME 必须包含 `json`）。`library_ref` 只能配
+`library_entry_id`，Asset 引用不能声明为 `library_ref`。
 
 生成类任务的结构性输入统一为：
 
@@ -76,7 +149,11 @@ Task runner / poller 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 抢占任务。�
 }
 ```
 
-`mode` 与 `slot` 必须满足所选模型 YAML/DB 中的 `input_contract`。`param_schema` 只描述真正的生成参数（比例、尺寸、时长、seed 等），不再承载参考图、首尾帧、参考音频这类结构性输入。
+`mode` 与 `slot` 必须满足 Task 固定 Model Revision 中的 `input_contract`。`param_schema` 只描述真正的生成参数（比例、尺寸、时长、seed 等），不再承载参考图、首尾帧、参考音频这类结构性输入。
+
+Input Contract V1 不接受隐式 slot：客户端引用未在当前 mode 的 required/optional 集合中声明的 slot
+会失败。required slot 的有效 `min` 至少为 1；optional slot 的有效 `min` 固定为 0。缺少必填 slot、
+超出 `max`、reference type 不一致或 Asset 类型/MIME 不一致均在进入 Adapter 前失败。
 
 adapter 收到的输入必须是服务端解析出的厂商可访问 URL 或普通结构化字段。即梦 CLI 媒体 flag
 只接受本地路径：adapter 将 URL 的 origin、对象路径前缀和 SigV4 签名参数与当前对象存储生成的
@@ -100,6 +177,11 @@ Adapter 拿到第三方临时 URL 后必须通过 `ctx.downloader.download()` �
 downloader 把响应流经大小限制和 SHA-256 计算写入临时文件，再以已知 Content-Length 上传，避免把
 最大 512 MiB 结果整体留在 Node 堆内；任务租约丢失时 AbortSignal 会中断下载。若终态 CAS 失败或
 数据库事务回滚，服务端 best-effort 删除本次已上传对象，避免取消/抢租产生孤儿文件。
+
+同步生成必须区分“厂商尚未接受”与“厂商已经产出、仅本地资产摄取失败”。后者通过
+`dispatch_outcome=accepted` 和厂商完成用量回传给 Invoke 账本：物理 attempt 按厂商成功结算并保留
+`ASSET_DOWNLOAD_FAILED` 等摄取错误，Task 明确失败且不得切换 Channel/Credential 或自动重新生成。
+若进程在账本结算后、Task 终结前崩溃，恢复器只根据该终态账本失败 Task，不重放厂商请求。
 
 ## 6. Polling
 
@@ -159,12 +241,21 @@ adapter.poll 返回：
 - 模型不存在/禁用
 - 凭证缺失或厂商明确拒绝
 
-重新调用厂商时 `retry_count++` 并回到 `queued`，同时清空旧的 `external_task_id/channel_id/credential_id`、
+重新调用厂商时 `retry_count++` 并回到 `queued`，同时清空旧的
+`external_task_id/channel_resource_uid/channel_revision_id/channel_route/credential_id`、调用关联、
 输出、错误、进度、起止时间和租约。下一次领取递增 `attempt_no`，调用厂商的幂等键为
 `task:{task_id}:attempt:{attempt_no}`。
 
+`outcome_unknown` 或 `accepted` 不能进入普通自动重投：恢复器会复用同一 logical invoke 查找已接受
+外部任务并重新挂回 Task；在 `TASK_INVOKE_RECOVERY_TIMEOUT_MS` 内没有确定结果时，Task 以
+`INVOKE_OUTCOME_UNKNOWN` 失败，但 pending 物理账本仍保留，用户 retry 会被
+`INVOKE_ATTEMPT_UNRESOLVED` 阻止。只有经过更长的 `TASK_INVOKE_ABANDON_MS` 安全窗口且仍无
+`external_task_id`，恢复器才把它终结为 `INVOKE_OUTCOME_ABANDONED`，之后才允许新尝试。
+
 若厂商任务已经成功、只是在把结果摄取到 S3/R2 时发生 `ASSET_DOWNLOAD_FAILED`，则保持
-`external_task_id/channel_id/credential_id` 与当前 attempt，只延后 poll/download；不得重新付费生成。
+`external_task_id/channel_resource_uid/credential_id` 与当前 attempt，只延后 poll/download；不得重新付费生成。
+同步生成没有可轮询的 `external_task_id` 时，同类摄取失败直接终结 Task；已成功的物理 attempt 和
+厂商 usage 仍保留并计费，自动重试不得重新调用生成接口。
 用户显式 retry 前重新校验当前 workspace membership、`project.task.run`，有源节点时还要重新校验
 `project.canvas.node.edit` 与节点归属。
 
@@ -176,6 +267,11 @@ adapter.poll 返回：
 - `running` 且已有外部任务：本地状态先提交，再 best-effort 调用 `adapter.cancel(external_task_id)`
 - `running` 同步调用：本地标 `cancelled`；迟到结果的 CAS 失败，若此时才拿到外部任务 id，
   executor 会立即 best-effort 取消厂商任务
+
+厂商已接受异步作业、但 Task 路由或物理账本终态落库失败时，也必须用原 Model Pin + Channel
+Revision/Route + Credential best-effort cancel。后台恢复器会扫描“账本已记录 external_task_id、Task
+尚未关联”的孤儿：能安全挂回则恢复轮询，否则执行相同补偿取消并终结账本。补偿失败会保留记录
+供后续重试，绝不通过再发一次生成请求来“确认”。
 
 厂商取消接口若只支持部分状态，adapter 采用 best-effort。
 
@@ -210,7 +306,7 @@ POST /api/v1/assets/:id/thumbnail-complete
 
 ## 10. 错误码
 
-统一错误码来自 `@xgcanvas/shared-types`：
+厂商与目录核心错误码来自 `@xgcanvas/shared-types`：
 
 - `VALIDATION_FAILED`
 - `CONSTRAINT_VIOLATION`
@@ -218,6 +314,8 @@ POST /api/v1/assets/:id/thumbnail-complete
 - `MODEL_DISABLED`
 - `CHANNEL_UNAVAILABLE`
 - `CREDENTIAL_INVALID`
+- `CATALOG_REVISION_MISSING`（永久错误，不得回退到当前模型）
+- `INVOKE_OUTCOME_UNKNOWN`（可能已到达厂商，禁止自动重放）
 - `RATE_LIMITED`
 - `VENDOR_TIMEOUT`
 - `VENDOR_REJECTED`
@@ -227,5 +325,8 @@ POST /api/v1/assets/:id/thumbnail-complete
 - `ASSET_TOO_LARGE`
 - `STORAGE_UNAVAILABLE`
 - `INTERNAL_ERROR`
+
+Task API 还会返回 `INVOKE_ATTEMPT_UNRESOLVED`，表示上一物理尝试仍待恢复或安全放弃，当前不能
+由用户 retry。
 
 request-id 全链路记录到 `ops.request_logs`，并在错误响应中用于排查。

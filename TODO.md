@@ -8,9 +8,8 @@
 
 - [ ] 确认 CNB `main` push 在 clean runner 通过 lint、test、max-lines、全仓 build 和双镜像发布。
 - [ ] 使用 CNB 构建的镜像完成一次空环境 `docker compose up -d` 冷启动 smoke。
-- [ ] 回放空数据库全部迁移，并验证一个旧 Beta 数据库的升级路径。
+- [ ] 在新的 PostgreSQL 数据卷回放全部迁移，并验证旧 Beta 结构会 fail closed。
 - [ ] 跑通百炼 / DashScope 的真实生图、生视频、失败重试、资产归档和请求日志。
-- [ ] 跑通豆包的真实生图或生视频链路，并记录模型、参数与区域限制。
 - [ ] 验证主流 S3 / R2 兼容桶的浏览器 CORS、源文件直传和视频缩略图降级。
 - [ ] 演练 PostgreSQL、对象存储和 `encryption-data` 卷的备份与恢复。
 

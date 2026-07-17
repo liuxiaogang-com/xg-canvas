@@ -4,7 +4,9 @@
 
 ## 文档职责
 
-- 行为规范写入对应 spec：架构写 `architecture.md`，adapter/model 写 `adapter-guide.md`，节点写 `node-spec.md`，任务写 `task-lifecycle.md`，API 写 `api-conventions.md`。
+- 行为规范写入对应 spec：架构写 `architecture.md`，Catalog 身份/Revision/热加载写
+  `model-catalog.md`，Adapter 扩展写 `adapter-guide.md`，节点写 `node-spec.md`，任务写
+  `task-lifecycle.md`，API 写 `api-conventions.md`。
 - `roadmap.md` 记录当前状态和后续方向，不替代正式 spec。
 - 开源首发暂隐能力与恢复清单写 `open-source-deferred.md`（与 roadmap 交叉引用）。
 - 不主动新增 README 或中间总结文档，除非用户明确要求。

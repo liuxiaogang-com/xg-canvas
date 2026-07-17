@@ -20,7 +20,7 @@ const capabilities = [
   ['调用与成本观测', '记录模型请求、延迟、用量和错误，并按模型、成员与项目聚合历史成本。', '已实现'],
 ];
 
-const providers = ['OpenAI-compatible', 'Bailian DashScope', 'Doubao', 'Dreamina CLI', 'S3 / R2'];
+const providers = ['OpenAI-compatible', 'DeepSeek', 'Bailian DashScope', 'Dreamina CLI', 'S3 / R2'];
 ---
 
 <MarketingLayout
@@ -144,11 +144,11 @@ const providers = ['OpenAI-compatible', 'Bailian DashScope', 'Doubao', 'Dreamina
         </ol>
       </div>
       <div class="control-plane__visual glass" aria-label="模型治理界面概念预览">
-        <div class="control-plane__header"><span>Model registry</span><span class="control-plane__live">● Runtime synced</span></div>
+        <div class="control-plane__header"><span>Model registry</span><span class="control-plane__live">● Snapshot active</span></div>
         <div class="control-plane__rows">
           <div class="control-plane__row"><strong>Bailian DashScope</strong><span>Image · Video</span><em>Enabled</em></div>
           <div class="control-plane__row"><strong>OpenAI-compatible</strong><span>Text · Stream</span><em>Enabled</em></div>
-          <div class="control-plane__row"><strong>Doubao</strong><span>Image · Video</span><em>Enabled</em></div>
+          <div class="control-plane__row"><strong>DeepSeek</strong><span>Text</span><em>Enabled</em></div>
           <div class="control-plane__row"><strong>Dreamina CLI</strong><span>Local bridge</span><em>Ready</em></div>
         </div>
         <div class="control-plane__metrics">

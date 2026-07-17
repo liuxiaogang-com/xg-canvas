@@ -102,11 +102,11 @@ XG Canvas 面向品牌、营销、影视、短剧、广告、电商内容和创�
 | ---- | --------------------------------------------------------- |
 | ✅   | Provider / Channel / Credential / Model 统一数据模型      |
 | ✅   | AES-GCM 凭证加密、版本化密钥和重新加密                    |
-| ✅   | YAML 预置模型 + 数据库手动模型的双源注册表                |
+| ✅   | 版本化 Model Catalog、官方/本地来源与确定性运行时快照     |
 | 🧪   | `/settings` 管理 Provider、渠道、凭证、模型和功能模型配置 |
 | 🧪   | 凭证验证、余额查询、厂商模型发现与导入                    |
 | 🧪   | 模型输入契约、动态参数、参考素材插槽和候选通道故障切换    |
-| 🧪   | OpenAI Compatible、百炼 / DashScope、豆包和即梦 CLI 接缝  |
+| 🧪   | OpenAI Compatible、百炼 / DashScope 与即梦 CLI 接缝       |
 | 🗺️   | 基于成本、延迟、健康度和业务优先级的企业模型路由          |
 | 🗺️   | Vault、KMS 与企业 Secrets Manager 接入                    |
 
@@ -237,7 +237,7 @@ docker.cnb.cool/liuxiaogang/xg-canvas/canvas-web:latest
 
 这些镜像由 [CNB 仓库](https://cnb.cool/liuxiaogang/xg-canvas)的 `main` 构建流水线生成；公开部署
 目前统一使用持续更新的 `latest` 标签。当前只构建 `linux/amd64`，ARM 设备尚未完成兼容验证。
-首次部署或更新时执行：
+首次部署时执行：
 
 ```bash
 docker compose pull
@@ -246,7 +246,12 @@ docker compose up -d
 
 宿主机只暴露 `http://localhost:5180`；数据库、Redis 与 API 不占用宿主机端口。首次打开同样会
 进入 `/setup`。Compose 已对应用镜像设置 `pull_policy: always`，重新部署时会检查并拉取最新
-制品。Beta 阶段升级前仍应备份 PostgreSQL、对象存储和 `encryption-data` 卷。
+制品。
+
+当前 Catalog-native Beta 基线是一次破坏性重置：此前 Beta 的 PostgreSQL volume 或 dump 不能
+复用或恢复到当前 schema。旧数据如需留存只能另行导出；部署本基线必须使用新的数据库或新
+volume。已经运行在当前基线上的实例，后续常规更新仍使用上面的 `pull` / `up` 命令，更新前应
+同时备份 PostgreSQL、对象存储和 `encryption-data` 卷。
 
 对象存储和 Provider 凭证随后在后台配置。请阅读：
 
@@ -264,7 +269,7 @@ docker compose up -d
 
 公开 Beta：
 
-- 跑通百炼 / DashScope、豆包等真实图像和视频生成链路。
+- 跑通百炼 / DashScope 等真实图像和视频生成链路。
 - 完成生产镜像、安装升级、备份恢复和故障排查验证。
 - 补齐首个工作流、对象存储 CORS 和 Provider 配置文档。
 - 建立稳定的 CI、集成测试和发布追溯能力。

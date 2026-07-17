@@ -1,25 +1,26 @@
 # account migrations
 
-Migrations for the `account` schema (providers / channels / credentials /
-model_definitions / mappings / encryption_keys / audit_logs).
+The `account` schema owns the immutable Model Catalog history and its small
+runtime configuration layer:
 
-Owned by the account subsystem in [canvas-api](../../../apps/canvas-api/src/account).
+- Catalog sources, releases, resources, revisions, release entries, and runtime state
+- provider installations, channel installations, and model settings
+- credentials bound directly to a stable `channel_resource_uid`
+- feature-to-model bindings, encryption keys, audit logs, and instance settings
 
-| File | Purpose |
-|---|---|
-| `001_init_account_schema.sql` | Initial 4-layer model + audit + encryption key registry |
+Catalog revisions are the only structural source of truth. There are no
+provider/channel/model projection tables, aliases, policy mirrors, or legacy
+row-adoption paths.
 
 ## Apply
 
+Run the repository migrator so schema generation and the permanent migration
+ledger are checked together:
+
 ```bash
-psql "$DATABASE_URL" -f 001_init_account_schema.sql
+pnpm db:migrate
 ```
 
-(later replaced by TypeORM migrations after S1.5 integrates a data-source.)
-
-## Conventions
-
-- All tables live in the `account` schema (`CREATE SCHEMA IF NOT EXISTS account`)
-- `param_schema` / `param_constraints` / `poll_policy` on `model_definitions` are
-  **mirrors of YAML manifests under `config/model-providers/`**. Do not edit them
-  in DB; edit YAML and call `POST /api/v1/admin/registry/reload`.
+The current Beta baseline is generation 2 and accepts fresh databases only.
+Existing pre-generation databases are rejected rather than inferred or
+backfilled.

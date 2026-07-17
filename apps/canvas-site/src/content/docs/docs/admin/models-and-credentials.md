@@ -9,23 +9,30 @@ sidebar:
 
 ```text
 Provider
-└── Channel
-    ├── Credential
-    └── Model mapping
+├── Channel ── Credential
+└── Model Offering ── allowed Channel(s)
+                    └── Rate Card Revision
 ```
 
 ## 可用模型
 
-当前运行时把“可用模型”定义为：模型和 Provider 已启用，并且 Provider 下存在已启用的渠道与凭证。
+Live 与 Demo 都要求当前 Model、Provider 和允许的 Channel Revision 可用于新任务，并且三类运行时
+设置已启用。Live 还要求候选 Channel 下存在启用凭证；Demo 只豁免凭证要求。公开模型列表按当前
+实例模式使用同一门禁，并额外要求 `visibility=public`。
 
-凭证验证结果用于运营提示，不直接作为模型可用性的门禁。实际调用是否成功仍取决于厂商、网络、额度和凭证状态。
+Live 下的凭证验证结果用于运营提示，不直接作为模型可用性的门禁。实际调用是否成功仍取决于厂商、网络、额度和凭证状态。
 
-## 双源注册表
+## 官方与本地资源
 
-- **Preset**：来自 `config/model-providers/` 中的 YAML。
-- **Manual**：通过后台创建或从厂商模型列表导入。
+- **Official Revision**：由项目作者的 YAML 在构建期编译进 Catalog Bundle，再按 Release 激活。
+- **Local Revision**：部署者通过后台创建、派生或从厂商模型列表导入。
 
-两类模型合并到同一个运行时注册表。重新加载预设不会覆盖手动模型。
+两类 Revision 与运行时设置、凭证共同生成一个不可变 Snapshot。`resource_uid` 是稳定身份，
+结构修改只会追加 Revision；运行时不会直接重读 YAML，也不存在 Provider/Model 结构镜像表。
+
+凭证必须绑定一个明确的 Channel。接入向导会在一个事务中启用 Provider/Channel、保存凭证、
+导入用户勾选的厂商模型，并只启用用户勾选且允许该精确 Channel 的官方模型；任一步失败都会
+全部回滚。
 
 ## 安全建议
 

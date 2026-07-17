@@ -7,7 +7,7 @@
 - 改节点定义、IO、表单：先读 `docs/node-spec.md`。
 - 改视觉 token、颜色、间距：先读 `docs/design-tokens.md`。
 - 改 preset 交互：先读 `docs/prompt-preset-spec.md`。
-- 改 settings 中模型/凭证/供应商：同时读 `docs/adapter-guide.md`。
+- 改 settings 中模型/凭证/供应商：同时读 `docs/model-catalog.md` 和 `docs/adapter-guide.md`。
 
 ## 前端边界
 

@@ -1,6 +1,6 @@
 # XG Canvas — Agent 子系统规范(内置工具 + 工具循环 + 会话)
 
-> 规划/蓝图。配套 [adapter-guide.md §10](./adapter-guide.md)(工具/流式/结构化输出契约)、[task-lifecycle.md](./task-lifecycle.md)。
+> 规划/蓝图。配套 [adapter-guide.md](./adapter-guide.md) 与 [task-lifecycle.md](./task-lifecycle.md)。
 > **当前现状**:`apps/canvas-api/src/agent/agent.service.ts` 是"让模型吐一个 JSON patch"的一次性玩法,**不是真工具循环**;scaffold 阶段按本文重写，工具随实现与契约验收逐项进入正式支持清单。
 
 ## 1. 定位
@@ -24,7 +24,7 @@ Agent 是**封装好的内置能力,用户只管用**(如"一句话生图")。�
 
 ```ts
 interface BuiltinTool {
-  def: ToolDef; // name + description + parameters_jsonschema(见 adapter-guide §10.1)
+  def: ToolDef; // name + description + parameters_jsonschema
   handler(args: object, ctx: ToolCtx): Promise<ToolOutcome>;
 }
 interface ToolCtx {
@@ -43,6 +43,13 @@ interface ToolOutcome {
 
 - 一个 `BuiltinToolRegistry`(name -> BuiltinTool),Agent 据 `tool_use` 能力把 `def[]` 喂给模型。
 - handler **直接调已有 service**(`task.service` 建任务 / canvas 节点 CRUD / `script.llm-extract` 抽取),不重复实现。
+- Agent 与 Script 不得硬编码兜底 `model_id`。未显式选模时通过 Feature Config 的有序
+  `model_resource_uid` 绑定解析当前可用 Model；没有候选时返回明确的模型未配置错误。
+- Feature 所需 task type 是代码契约，不是管理员可编辑字段：当前 `agent`、`ai-analysis`、
+  `script-extract` 均固定要求 `gen.text`。Feature Config API 返回 `required_task_type`，保存和运行时都
+  拒绝不兼容 Model。
+- 生成工具创建的每个 Task 都固定 Model/Rate Card Revision，并写入 `execution_mode=live|demo`；
+  对话流式调用在开始时捕获一次当前 Registry Snapshot，单次调用中不得切换 Revision。
 - **规划中的候选工具类别（当前未开放工具循环）**：`generate_image` / `generate_video` / `generate_text` / `create_node` / `edit_node` / `connect_nodes` / `extract_characters` …
 
 ## 4. Agent 循环(住 canvas-api,不在 Adapter)
@@ -57,7 +64,7 @@ interface ToolOutcome {
 ```
 
 - 门控:整功能按模型 `capabilities` 的 `tool_use` + `streaming`;模型没 `tool_use` → 退回纯文本 / 旧的一次性 JSON patch 模式。
-- 工具调用的厂商信封翻译在 Adapter 层(§10.1),循环本身厂商无关。
+- 工具调用的厂商信封翻译在 Adapter 层，循环本身厂商无关。
 
 ## 5. 数据模型(`canvas` schema 新增)
 

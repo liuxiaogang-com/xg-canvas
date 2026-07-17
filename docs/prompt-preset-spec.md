@@ -2,7 +2,7 @@
 
 ## 1. 范围(两层)
 
-- **system**:全局内置,所有用户可用,只读(只能管理员经 canvas-web /settings 编辑)
+- **system**:全局内置,所有用户可用,当前由 seed 管理且对公共 API 只读
 - **user**:登录用户私有,可增删改
 
 > 不做"项目级"——项目内的差异化通过节点本地的 prompt 字段实现,不沉淀为预设。
@@ -68,9 +68,9 @@
 - 风格预设是 `style_token`(一种 IO 类型),由厂商或我们预生成的"风格指纹"
 - 提示词预设是文本/参数级别的填空模板
 - 二者**独立**,可同时使用
-- M2 只做提示词预设,风格预设(M3+)按需追加
+- 当前 Prompt Preset 只描述提示词预设；风格预设按独立资源契约后续扩展
 
-## 7. 内置 system 预设(M2 提供 ≥ 20 条)
+## 7. 内置 system 预设
 
 由 seed migration 写入,清单暂存于 `database/migrations/canvas/seeds/prompt-presets.sql`。
 
@@ -82,5 +82,5 @@
 
 ## 8. 编辑/审核
 
-- system 预设的修改通过 canvas-web /settings 管理页(M2 末由 canvas-api 提供专用 admin route,经 AdminGuard 鉴权)
+- 当前没有 system 预设管理路由或 `/settings` 编辑器；修改内置集合需更新 seed 并随版本发布
 - user 预设由用户自己管,无审核

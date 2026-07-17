@@ -1,6 +1,6 @@
 ---
 title: 扩展 XG Canvas
-description: 了解 Adapter、Provider、模型 YAML 和节点契约的扩展入口。
+description: 了解 Adapter、Model Catalog 和节点契约的扩展入口。
 sidebar:
   order: 1
 ---
@@ -9,11 +9,17 @@ XG Canvas 为模型厂商、模型定义、节点和 Agent 工具保留了扩展
 
 ## 添加 Provider 或模型
 
-预置模型来自 `config/model-providers/` YAML，运行时再与数据库中的手动模型合并。添加厂商时，应同步实现对应 Adapter，并保持模型能力与 Adapter 能力一致。
+官方 Provider、Channel、Model 与 Rate Card 在 `config/model-providers/` 中按 YAML 维护，
+构建时编译成确定性的 Catalog Bundle。运行时由 Active Official Revisions、Local Heads、三张
+Runtime Settings 与 Credential 合成不可变 Snapshot；API 进程不会直接扫描 YAML。
+
+添加厂商时必须同步实现对应 Adapter，并显式声明 Provider/Channel 支持的 `adapter_keys`、
+Model 使用的 `adapter_key` 和非空允许 Channel。不要从模型名称猜测能力或调用协议。
 
 ## 实现 Adapter
 
-Adapter 契约位于 `@xgcanvas/adapters-contract`。业务模块不会直接调用厂商实现，而是通过账户模块的调用接缝执行。
+Adapter 契约位于 `@xgcanvas/adapters-contract`。业务模块不会直接调用厂商实现，而是通过
+`account-client` 接缝执行。Adapter 只处理协议；Catalog Revision 才是结构与能力真相。
 
 厂商返回的图片或视频必须先下载到部署者自己的 S3/R2 兼容存储，再向前端提供资产 URL。
 

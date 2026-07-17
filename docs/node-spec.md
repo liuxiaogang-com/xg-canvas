@@ -182,15 +182,18 @@
 **上方工具条(`NodeToolbar`,已存在):** 屏幕坐标锚定在节点上方 ~12px,跟随平移缩放。内容 = `schema.toolbarActions`(按节点类型变化的衍生操作)。`primary` 项用 accent。
 
 **下方内联表单(`NodeInlineForm`,v0.4):** 锚定在节点下方,跟随节点。由 `schema.form` 描述符 + 当前模型 `input_contract` 共同驱动,采用参考平台的“参考内容 → prompt → 模型/参数”顺序:
-1. **参考内容区**:优先读取当前模型 `input_contract.modes[].required_slots/optional_slots`,自动渲染参考图、首帧、尾帧、参考视频、驱动音频等 slot；`schema.form.referenceSlots` 只提供兜底标签、端口映射和旧模型兼容。提交时统一写入 `inputs.references[].slot/type/order`
+1. **参考内容区**:只以当前 Model Revision 的 `input_contract.modes[].required_slots/optional_slots` 决定可提交的 mode、slot、类型与数量；`schema.form.referenceSlots` 只补充节点端口映射和展示标签，不能定义模型能力。提交时统一写入 `inputs.references[].slot/type/order`
    - **三源合一:** (a) 上游连线自动填充——按入边 `data_type` 与当前槽位类型匹配,多条连线支持多个参考;切换节点类型/模式时仍从 edges 实时解析,不丢上游信息;源节点尚未产出 `output_asset_id` 时槽位显示「待生成」占位。(b) 手动选取——槽位未满时可点开 **ResourcePicker**(选择资产 / 从库选择 / 上传),写入 `node.data.manual_references`;**上游连线与手动选取共存**,按槽位 `max` 合计计数。(c) Prompt `@` 提及——写入 `prompt_references`,提交时与显式参考合并。
    - **ResourcePicker 浮层:** 通过 `createPortal` 挂到 `document.body`,`position: fixed` 锚定触发按钮,默认在按钮**上方**展开,上方空间不足时翻转到下方;不占 DOM 流,不被画布/`overflow`/底栏裁切。工作区资产固定查询 `project_id=global`；项目库候选只合并当前项目 + global。网格批量签 thumb，视频无封面时显示占位，不加载完整视频。只有 slot 的 `input_contract.library` 明确包含 `material` 时显示库 tab，并按 kinds 与展开后的 slot.max 过滤。
-2. **prompt 输入**(`form.prompt`):多行,支持 `@` 引用上游节点 / 实体 / 素材。提交时保存 `inputs.prompt_doc` 用于 UI 复原与审计,同时把可匹配当前 `input_contract` slot 的引用转换为 `inputs.references[]`;显式参考区内容优先,`@` 引用只补兼容 slot。
+2. **prompt 输入**(`form.prompt`):多行,支持 `@` 引用上游节点 / 实体 / 素材。提交时保存 `inputs.prompt_doc` 用于 UI 复原与审计,同时把可匹配当前 `input_contract` slot 的引用转换为 `inputs.references[]`;显式参考区内容优先,`@` 引用只补匹配 slot。
 3. **底部模型/参数区**:先显示真实模型版本(如 `Seedream 5.0` / `Seedance 2.0 Fast`,来自 `param_schema.model_version`),再显示生成类型/调用入口(`modelApi.list(task_type)` 返回的 `model_id`,如即梦文生图/图生图/全能参考视频),然后显示当前入口支持的 mode 切换(`input_contract.modes[].id`)、其它参数 chips、成本和生成键。模型相关下拉在画布内联表单中向上展开,菜单宽度可大于触发器;真实模型版本选项使用两行结构,第一行小字显示供应商/来源,第二行显示模型名。生成类型选项只显示生成类型名称,不混入供应商或 tag。
-4. **参数 chips**:**选项/范围由所选模型的 `param_schema` + `param_constraints` 经 `@xgcanvas/constraint-engine` 实时推导**,不再按节点类型硬编码；参考图、首尾帧、音频参考等结构性输入不放在 `param_schema`,统一由模型 `input_contract` 声明
+4. **参数 chips**:**选项/范围由所选 Model Revision 的规范紧凑 `param_schema` + `param_constraints` 经 `@xgcanvas/constraint-engine` 实时推导**,不再按节点类型硬编码；参考图、首尾帧、音频参考等结构性输入不放在 `param_schema`,统一由模型 `input_contract` 声明
 5. **⤢ 展开**:把内联表单放大为居中大编辑器(复用并改造原 `NodeDetailPanel` 模态,作为「放大编辑」而非主入口)
 
 快速生成页也使用同一套生成输入契约:创作类型只决定 `task_type`,具体生成 mode 与参考 slot 由所选生成类型的 `input_contract` 决定；提交结构与画布节点一致,均为 `inputs.mode` + `inputs.references[]` + `params`。参考槽同样打开共享 ResourcePicker 浮层(锚定在参考按钮上方)。当厂商把真实模型版本放在 `model_version` 参数里(如即梦 CLI 的 Seedream/Seedance),前端必须把它提升为第一选择器,而不是混在普通参数弹层里。
+
+节点 schema、快速生成页和 Agent 工具都不得硬编码兜底 `model_id`。模型来自用户明确选择或
+Feature Config 的有序 `model_resource_uid` 绑定；没有可用选择时禁用提交并显示配置入口。
 
 快速生成页的轻会话与 URL 联动:`/generate` 打开默认会话,`/generate/:conversationId` 直接打开对应本地会话；切换、创建、删除会话时必须同步浏览器 URL。会话标题可在左侧会话列表内重命名,标题与 taskId -> conversationId 的归属关系都保存在前端本地存储中,不改变任务 API 的持久化语义。
 
@@ -259,7 +262,7 @@ export const genImageSchema: NodeSchema<GenImageData> = {
     { id: 'style',     type: 'style_token', required: false },
   ],
   outputs: [{ id: 'out', type: 'image' }],
-  defaultData: { mode: 'text_to_image', prompt: '', model_id: null, aspect_ratio: '1:1', resolution: '1k', batch: 1 },
+  defaultData: { mode: null, prompt: '', model_id: null, aspect_ratio: '1:1', resolution: '1k', batch: 1 },
 
   // 节点上方浮动工具条:类型化 AI 衍生操作
   toolbarActions: [
@@ -271,10 +274,6 @@ export const genImageSchema: NodeSchema<GenImageData> = {
 
   // 节点下方内联生成表单(LibTV 范式)
   form: {
-    modes: [
-      { id: 'text_to_image', label: '文生图' },
-      { id: 'image_to_image', label: '图生图', requires: ['reference'] },
-    ],
     referenceSlots: [
       { port: 'reference', slot: 'source_image', label: '参考图', accept: 'image_list' },
       { port: 'mask',      slot: 'mask', label: '蒙版', accept: 'mask', advanced: true },
@@ -286,29 +285,32 @@ export const genImageSchema: NodeSchema<GenImageData> = {
       { field: 'resolution',   control: 'chips', label: '清晰度' },
     ],
     batch: { field: 'batch', default: 1, max: 4 },
-    cost: true,                                   // 调 /models/:id/estimate-cost
+    cost: true,                                   // POST /models/estimate-cost { model_id, params }
     submit: { label: '生成', taskType: 'gen.image' },
   },
 
   agentSuggestions: ['换成赛博朋克风格', '加一只猫', '改成竖屏 9:16'],
   agentContext: (data) => `这是一个图片生成节点。prompt: "${data.prompt}"，比例 ${data.aspect_ratio}。`,
-  buildTaskBody: (data, upstream) => ({
-    task_type: 'gen.image',
-    model_id: data.model_id ?? 'doubao:seedream-image',
-    params: { aspect_ratio: data.aspect_ratio, resolution: data.resolution, batch: data.batch },
-    inputs: {
-      mode: data.mode,
-      prompt: upstream.prompt ?? data.prompt,
-      prompt_doc: data.prompt_doc,
-      references: [
-        { slot: 'source_image', type: 'image', asset_id: upstream.references?.[0]?.asset_id, order: 0 },
-      ].filter((r) => r.asset_id),
-    },
-  }),
+  buildTaskBody: (data, upstream) => {
+    if (!data.model_id || !data.mode) throw new Error('model and mode are required');
+    return {
+      task_type: 'gen.image',
+      model_id: data.model_id,
+      params: { aspect_ratio: data.aspect_ratio, resolution: data.resolution, batch: data.batch },
+      inputs: {
+        mode: data.mode,
+        prompt: upstream.prompt ?? data.prompt,
+        prompt_doc: data.prompt_doc,
+        references: [
+          { slot: 'source_image', type: 'image', asset_id: upstream.references?.[0]?.asset_id, order: 0 },
+        ].filter((r) => r.asset_id),
+      },
+    };
+  },
 };
 ```
 
-> `form.params[].control` 只声明控件类型与字段;**具体选项 / min-max / 显隐由所选模型的 `param_schema` + `param_constraints` 在运行时经 `constraint-engine` 推导并 `reconcileParams`**。后端模型清单仍只改 YAML(铁律 #3)。
+> `form.params[].control` 只声明控件类型与字段；**具体选项 / min-max / 显隐由所选 Model Revision 的 `param_schema` + `param_constraints` 在运行时经 `constraint-engine` 推导并 `reconcileParams`**。官方模型通过作者 YAML + Catalog Revision/Release 发布；部署者私有模型通过 Local Resource Revision 管理，不存在运行时 YAML reload。
 
 ## 7. 节点新增 / 改造清单(PR checklist)
 

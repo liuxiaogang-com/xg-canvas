@@ -14,7 +14,7 @@ XG Canvas 是类似 ComfyUI + Dify + TapNow 的 AI 创意项目管理与画布�
 
 ## 2. 当前服务拓扑
 
-M6 之后为模块化单体：
+当前采用模块化单体：
 
 | 服务       | 技术                           |                端口 | 路径              |
 | ---------- | ------------------------------ | ------------------: | ----------------- |
@@ -30,25 +30,34 @@ M6 之后为模块化单体：
 
 1. 单文件尽量不超过 400 行，严禁超过 500 行。
 2. 业务模块调用模型/厂商必须经过 `account-client` seam。
-3. Adapter 协议层 code-first；模型清单为 YAML preset 与 DB manual 双源注册表。
+3. Adapter 协议层 code-first；Catalog Revision 是 Provider、Channel、Model 与 Rate Card 的唯一结构真相，官方作者 YAML 构建为确定性 Bundle，运行时不维护结构镜像。
 4. 任务即真相：长任务先落 `canvas.tasks`，使用 `SELECT ... FOR UPDATE SKIP LOCKED` 拿单。
 5. 资产先落我们的远程 S3/R2：adapter 拿到第三方 URL 后必须经 downloader 转存。
 6. Redis 全局前缀为 `xgcanvas:`，所有客户端必须经 `RedisModule`。
-7. 模型注册表 = preset YAML ∪ manual DB；manual 不被 reload 覆盖。
+7. Model Catalog 使用稳定 `resource_uid`、不可变 Revision 和官方/本地 Source；Registry 由 Active
+   Official Revisions、Local Heads、Runtime Settings 与 Credential 合成并原子切换不可变 Snapshot。
 8. 即梦 CLI 只通过 `DreaminaCliRunner` 使用，不再有 account-cli-bridge。
 9. 前端永远拿我们的资产 URL，不拿第三方临时 CDN URL。
 10. 改行为必须同步相关 docs。
 
-## 4. 可用模型定义
+## 4. 模型可用性定义
 
-“可用模型”统一定义为：
+Live 与 Demo 共用以下基础门禁：
 
-- model row enabled
-- provider enabled
-- provider 下存在 enabled channel
-- channel 下存在 enabled credential
+- 当前 Model Revision 为 `active|deprecated`，且对应 `model_settings.enabled=true`
+- 当前 Provider Revision 存在，且对应 `provider_installations.enabled=true`
+- 至少一个模型允许的当前 Channel Revision 对应 `channel_installations.enabled=true`
 
-不要求 credential `is_valid=true`，也不因为 `expires_at` 过滤。验证状态是运营提示，不是可用性门禁。
+Adapter 契约必须成立。Live 可用性还要求候选 Channel 下存在 `enabled=true` 的 Credential；Demo
+可选择性只豁免该凭证要求，仍不能绕过 Revision、Settings、allowed Channel 或 Adapter 门禁。
+公开模型列表按实例当前 `execution_mode` 使用相同规则，并额外要求
+`model_settings.visibility=public`。Live 不要求 Credential `is_valid=true`，也不因为 `expires_at`
+过滤；验证状态是运营提示，不是可用性门禁。所有 Task（包括 Demo）创建时固定模型与费率 Revision；
+Demo 使用 MockExecutor，真实分发后还会固定精确 Channel Revision/Route/Credential。Poll、Cancel 与
+恢复不重新选路，目录更新不改变任务语义。
+
+当前 Beta 只接受全新的 Catalog-native 数据库，不读取此前的模型行或任务记录。部署该基线时必须
+使用新 PostgreSQL 数据卷；后续进入结构冻结期后再恢复追加式升级策略。
 
 ## 5. 当前阶段
 
@@ -72,6 +81,7 @@ M6 之后为模块化单体：
 | `docs/api-conventions.md` | API 命名、鉴权、端点             |
 | `docs/task-lifecycle.md`  | 任务状态机、轮询、取消、资产     |
 | `docs/adapter-guide.md`   | provider / adapter / model 扩展  |
+| `docs/model-catalog.md`   | 目录身份、修订、Bundle 与热加载  |
 | `docs/node-spec.md`       | 节点、IO、画布交互               |
 | `docs/agent-spec.md`      | Agent 与工具调用                 |
 | `docs/billing.md`         | 计费与请求日志成本冻结           |
@@ -91,8 +101,10 @@ packages/
   shared-types/
   adapters-contract/
   constraint-engine/
+  model-catalog/
   ui-kit/
 config/
+  model-catalog.yaml
   model-providers/
   schema-templates/
 database/migrations/

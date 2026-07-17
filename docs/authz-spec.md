@@ -24,7 +24,7 @@ super_admin / is_instance_owner → 短路返回全集
 
 | key | scope | 边界 |
 |---|---|---|
-| `it_super_admin` | system | 全权(短路)+ `is_instance_owner` 兜底;唯一能授超管/动 config-sync |
+| `it_super_admin` | system | 全权(短路)+ `is_instance_owner` 兜底;唯一能授予超管 |
 | `sys_admin` | system | 用户/凭证/模型/计费/日志运营 + 跨项目只读(`project.read`);默认不授跨项目写 |
 | `project_admin` | project | 单项目:成员管理、设置/归档、画布全编辑、任务、资产删任意 |
 | `project_member` | project | 编辑节点、跑任务、传/删资产(删受 owner 约束) |
@@ -32,7 +32,7 @@ super_admin / is_instance_owner → 短路返回全集
 
 ## 3. 权限目录命名
 
-`<scope>.<resource>.<action>`,粒度落在**前端组件语义**而非接口。action 收敛:`view/read`、`create`、`edit`、`delete`、`manage`、`run`。完整 21 条见 `catalog.ts`(system 12 + project 9);`is_dangerous` 的(如 `system.user.assign_super_admin`、`system.config.sync`、`system.request_log.manage`)自定义角色不可随意勾;`has_condition` 的(`project.asset.delete` owner、`project.settings.manage` 归档态)放行后仍走资源二判。
+`<scope>.<resource>.<action>`,粒度落在**前端组件语义**而非接口。action 收敛:`view/read`、`create`、`edit`、`delete`、`manage`、`run`。完整 26 条见 `catalog.ts`(system 14 + project 12);`is_dangerous` 的(如 `system.user.assign_super_admin`、`system.config.sync`、`system.request_log.manage`)自定义角色不可随意勾;`has_condition` 的(`project.asset.delete` owner、`project.settings.manage` 归档态)放行后仍走资源二判。
 
 ## 4. 后端落地
 
@@ -40,7 +40,13 @@ super_admin / is_instance_owner → 短路返回全集
 - **声明**:`@RequirePerm('project.canvas.node.edit', { scope:'project', from:'param', key:'projectId' })`。`scope=project` 时从 `param|body|query` 取 project_id,**取不到即 deny**(不静默放行)。两类例外:① 同一端点也服务 `project_id IS NULL` 资源(gen.text 任务 / workspace 资产列表)时加 `optional:true`——缺 project_id 则跳过、回落各 service 的 `owner_id` + `assertMember`;② sentinel `project_id='global'` 视同无项目。
 - **守卫覆盖不到的写**:`entity` 的 update/delete 把 project_id 挂在实体上(不在请求里),guard 无从解析 → 这类在 **service 内**用同一 `AuthzService.can()` + 同一 key 判定。
 - **创建即拥有**:运行时新建 project,创建者当场写入 `project_admin` 绑定(不止启动回填),否则 RBAC 一上线创建者反而无权编辑自己的画布。
-- **系统管理面**:`credential / provider / channel / model-definition / registry / config-sync / dreamina / billing / request-log` 九个控制器已从旧 `AdminGuard`(二元 env `ADMIN_EMAILS`)迁到 `@RequirePerm(system.*)` —— 凭证=`credential.manage`、供应商/模型/通道=`model.manage`、registry/config-sync/dreamina=`config.sync`、计费=`billing.view`、日志读=`request_log.view`/清理=`request_log.manage`。`AdminGuard` 退役,系统权限一律走 RBAC,可细分。
+- **系统管理面**:凭证、Vendor Models 与 Dreamina 使用 `system.credential.manage`；Provider/Channel/Model 使用 `system.model.manage`；Feature Config、对象存储和 SMTP 使用 `system.config.manage`；Registry reload/snapshot 使用 `system.config.sync`；计费使用 `system.billing.view`；Request Log 分 `view/manage`。旧 Config Sync Controller 与页面已删除，`AdminGuard` 退役，系统权限统一走 RBAC。
+- **用途化只读投影**：页面只有 `system.config.manage` 时不得为了填充下拉框调用
+  `system.model.manage` 的完整管理 API。Feature Config 使用
+  `GET /admin/feature-configs/model-options` 获取最小 Model 投影；端点沿用
+  `system.config.manage`，不扩大调用者的模型管理权限。相同原则用于凭证页：
+  `GET /admin/credential-catalog` 以 `system.credential.manage` 返回当前 Catalog 的用途化投影和未归档
+  Credential，不要求 `system.model.manage`，也不暴露 Secret 或完整模型管理对象。
 - **缓存**:`xgcanvas:authz:caps:{user}:{scope}:{scopeId}`,TTL 300s;任何 binding/role 写操作调 `AuthzService.invalidate(userId)` 清该用户全部缓存键;改内置角色权限(seed reload)按角色 `invalidateByRoleId` 清全体持有者。
 - **审计**:`authz_audit` 记所有 deny + binding.grant/revoke(`AuthzService.audit`,best-effort)。
 - **租户门**:项目操作仍过 service 的 `assertMember`(workspace 成员存在性);`assignProjectRole` 在授项目角色时一并保证 workspace 成员行存在。
@@ -59,7 +65,7 @@ super_admin / is_instance_owner → 短路返回全集
 - 三档门控:`RoleGate`(路由:有任一 system 能力才进 `/settings`)、`<Can perm project>`(区块)、`can()`(按钮/输入 readOnly)。
 - 同一份 capability key 三处同源 → 游客进项目所有 `.edit/.run/.delete/.manage` 组件自动只读/隐藏。
 - **画布组件级只读**:`CanvasPage` 进项目即 `loadProject(pid)`,把 `project.canvas.node.edit` 写进 `useCanvasUI.canEdit`(单一真相)。无权时:节点不可拖/连(`nodesDraggable/Connectable=false`)、Dock 加节点隐藏、节点工具栏不渲染、右键菜单去掉副本/删除、内联表单 `pointer-events:none`,顶部显示"只读模式"横幅。同一编辑器 A 可改、B 只读即由此实现。
-- **Settings 子页细分**:`SettingsLayout` 按各 tab 声明的 system 能力(`credential.manage`/`model.manage`/`config.sync`/`request_log.view`/`billing.view`…)过滤,缺权能的 tab 直接不显示。
+- **Settings 子页细分**:`SettingsLayout` 按各 tab 声明的 system 能力(`credential.manage`/`model.manage`/`config.manage`/`request_log.view`/`billing.view`…)过滤，缺权能的 tab 直接不显示；不再存在 Config Sync 页面。
 - 管理面:项目成员页(`project.member.manage` 才显增删改)、系统用户角色页(`system.user.manage`;授超管选项需 `assign_super_admin`)。
 
 ## 7. 收编旧机制
