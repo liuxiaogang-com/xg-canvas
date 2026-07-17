@@ -11,7 +11,6 @@ sidebar:
 | 变量                                    | 用途                                                             |
 | --------------------------------------- | ---------------------------------------------------------------- |
 | `PUBLIC_BASE_URL`                       | 启用 Magic Link / OAuth 时必填的产品外部地址；密码登录不需要     |
-| `DEMO_MODE`                             | 是否启用模拟任务，默认 `false`；复用当前已启用模型且不要求凭证   |
 | `CANVAS_WEB_PORT`                       | Web 宿主机端口，默认 `5180`                                      |
 | `CANVAS_API_IMAGE` / `CANVAS_WEB_IMAGE` | 覆盖公开 CNB `latest` 应用镜像地址，例如切换镜像代理或自建镜像源 |
 | `POSTGRES_IMAGE` / `REDIS_IMAGE`        | 覆盖默认的 Docker Hub PostgreSQL 18 / Redis 8 官方镜像           |

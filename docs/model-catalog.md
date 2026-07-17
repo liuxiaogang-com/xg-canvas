@@ -36,7 +36,7 @@
 9. 新官方模型默认不全量启用；凭证向导必须绑定一个显式 Channel，只启用用户勾选且允许该
    Channel 的模型。
 10. 公开 API 使用稳定 `model_id`，内部身份和关联统一使用 `resource_uid`。
-11. 所有 Task（包括 Demo）保存并使用创建时的 Model/Rate Card Revision；执行方式由 `execution_mode` 选择。
+11. 所有 Task 保存并使用创建时的 Model/Rate Card Revision，且只执行真实厂商调用。
 12. 官方结构字段只读；要改变协议、参数或能力，必须 Fork 成本地模型。
 13. Provider 与 Channel 都必须声明非空 `adapter_keys`；Model 必须声明一个 `adapter_key` 和非空 `allowed_channel_uids`，不存在“空集合代表全部 Channel”的通配语义。
 14. Channel 的 `adapter_keys` 必须是所属 Provider 声明集合的子集；Model 只能选择属于同一 Provider、且明确支持其 `adapter_key` 的 Channel。
@@ -260,18 +260,18 @@ Resource/Provider 缺失、Rate Card 归属不一致或 Adapter 契约不成立�
 
 ## 7. 可用性
 
-Live 与 Demo 都必须满足以下基础门禁：
+模型必须满足以下可用性门禁：
 
 - 当前 Model Revision 是 active/deprecated，Model Settings `enabled=true`。
-- 当前 Provider 和至少一个被模型允许的 Channel 都是当前 Revision且 Settings 已启用。
+- 当前 Provider 和至少一个被模型允许的 Channel 都是当前 Revision且 Settings 已启用，并且候选
+  Channel 下存在 `enabled=true` 的 Credential。
 - Model 的 `adapter_key` 由 Provider 声明，且候选 Channel 的 `adapter_keys` 明确包含它。
 - Adapter 存在、声明支持模型 task type，并实现对应 sync/stream/async 能力。
 
-Live 可用性还要求候选 Channel 下存在 `enabled=true` 的 Credential；Demo 可选择性只豁免凭证要求。
-Credential 的 `is_valid` 与 `expires_at` 只作运营提示，不参与 Live 可用性门禁。公开模型列表按当前
-实例执行模式使用同一规则并额外要求 `visibility=public`。公开模型列表、Feature Config、Invoke 和
-account-client 都复用 `ModelAvailabilityService`，不能各自复制近似 SQL。`model_id` 是不可修改的
-公开稳定键；内部关联始终使用 `resource_uid`。
+Credential 的 `is_valid` 与 `expires_at` 只作运营提示，不参与可用性门禁。公开模型列表使用同一
+规则并额外要求 `visibility=public`。公开模型列表、Feature Config、Invoke 和 account-client 都复用
+`ModelAvailabilityService`，不能各自复制近似 SQL。`model_id` 是不可修改的公开稳定键；内部关联
+始终使用 `resource_uid`。
 
 Feature Config 的 `required_task_type` 来自代码拥有的 Feature Contract，不保存为可编辑配置。当前 `ai-analysis`、`agent`、`script-extract` 都要求 `gen.text`；绑定写入前以及运行时选择时都会拒绝不兼容 Model。它通过 `system.config.manage` 专用的 `/admin/feature-configs/model-options` 获取最小 Model 投影，不依赖 `system.model.manage` 的完整 Model 管理 API。
 
@@ -309,13 +309,11 @@ model_resource_uid
 model_revision_id
 rate_card_revision_id
 catalog_epoch
-execution_mode             live | demo
 ```
 
 客户端不能提交这些字段。Invoke、Poll、Cancel、Retry 都通过同一 Pin 解析 Adapter 与上游模型，
-目录更新只影响之后创建的任务。所有 Task（包括 Demo）创建时必须写入完整 Pin；Demo 在创建时只
-豁免 Credential 门禁，并通过 `execution_mode=demo` 选择 MockExecutor。固定 Revision 无法解析时返回永久错误
-`CATALOG_REVISION_MISSING`，不能悄悄改用当前模型。
+目录更新只影响之后创建的任务。所有 Task 创建时必须写入完整 Pin，并且只执行真实厂商调用。固定
+Revision 无法解析时返回永久错误 `CATALOG_REVISION_MISSING`，不能悄悄改用当前模型。
 
 Channel 不是 Task 创建时的 Catalog Pin：真实调用在分发前从 Model 显式允许的 Channel 中选路，
 先把精确的 `channel_resource_uid/channel_revision_id/channel_route/credential_id` 持久化到分发前的

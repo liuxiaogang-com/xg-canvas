@@ -16,11 +16,10 @@ Provider
 
 ## 可用模型
 
-Live 与 Demo 都要求当前 Model、Provider 和允许的 Channel Revision 可用于新任务，并且三类运行时
-设置已启用。Live 还要求候选 Channel 下存在启用凭证；Demo 只豁免凭证要求。公开模型列表按当前
-实例模式使用同一门禁，并额外要求 `visibility=public`。
+当前 Model、Provider 和允许的 Channel Revision 必须可用于新任务，三类运行时设置已启用，并且
+候选 Channel 下存在启用凭证。公开模型列表使用同一门禁，并额外要求 `visibility=public`。
 
-Live 下的凭证验证结果用于运营提示，不直接作为模型可用性的门禁。实际调用是否成功仍取决于厂商、网络、额度和凭证状态。
+凭证验证结果用于运营提示，不直接作为模型可用性的门禁。实际调用是否成功仍取决于厂商、网络、额度和凭证状态。
 
 ## 官方与本地资源
 

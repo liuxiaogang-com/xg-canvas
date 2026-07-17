@@ -24,8 +24,8 @@
 - Catalog Revision 是 Provider、Channel、Model 与 Rate Card 的唯一结构真相；官方和本地资源都使用稳定 Catalog UUID 与不可变 Revision，不维护结构镜像表。
 - Provider/Channel/Model 的本地结构写入必须通过 `CatalogLocalWriterService`，外层由 `RegistryBootstrapService.mutateLocal` 在事务中构建候选 Snapshot 并提交后切换。
 - Runtime Settings 只使用 `provider_installations`、`channel_installations`、`model_settings`；Credential 直接引用 `channel_resource_uid`，结构关系只能来自当前 Catalog Revision。
-- 模型可用性由 `ModelAvailabilityService` 统一判定：Live/Demo 都要求当前 Revision、Model/Provider/允许 Channel Settings 与 Adapter 契约成立；Live 还要求启用 Credential，但不要求验证通过或未过期，Demo 只豁免 Credential。
-- 所有 Task（包括 Demo）创建时固定 Model/Rate Card Revision；`execution_mode=demo` 同时决定选模凭证门禁与 MockExecutor，Invoke/Poll/Cancel/Retry 不得回退到当前新 Revision。
+- 模型可用性由 `ModelAvailabilityService` 统一判定：当前 Revision、Model/Provider/允许 Channel Settings 与 Adapter 契约必须成立，并且候选 Channel 下存在启用 Credential；Credential 不要求验证通过或未过期。
+- 所有 Task 创建时固定 Model/Rate Card Revision；系统只执行真实厂商调用，Invoke/Poll/Cancel/Retry 不得回退到当前新 Revision。
 - 结构性生成输入放在 `input_contract`；真实生成参数放在 `param_schema` 和 `param_constraints`。
 - Catalog 只接受规范 task/capability、紧凑 Param Schema 与 components Pricing；不得在 Compiler、导入层或 Snapshot 层加入旧格式转换。
 - 厂商 `/models` 只提供 ID，必须由显式 contract profile 推导 Adapter 和兼容 Channel，禁止按模型名猜能力。

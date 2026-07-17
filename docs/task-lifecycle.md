@@ -41,15 +41,14 @@ model_resource_uid
 model_revision_id
 rate_card_revision_id        无 Rate Card 时为 null
 catalog_epoch
-execution_mode               live | demo
 ```
 
 `TaskExecutorService`、`TaskPollerService` 和 `TaskTerminalService` 都通过
 `requireTaskModelPin` 读取同一组字段；Invoke/Poll/Cancel 使用
 `RegistryService.requirePinnedEntry` 解析不可变 Revision。Retry 保留原 Pin，不切换到当前新模型。
-真实执行和 Demo 都从同一 Catalog 选模并保存 Pin；`execution_mode=demo` 在选模时只豁免 Credential
-门禁并决定使用 MockExecutor，不能绕过 Revision、Runtime Settings、allowed Channel 或 Adapter
-契约。Pin 缺失或 Revision 已不可执行时返回永久错误 `CATALOG_REVISION_MISSING`。
+系统只执行真实厂商调用，创建任务前必须通过 Revision、Runtime Settings、allowed Channel、Adapter
+契约和启用 Credential 门禁。Pin 缺失或 Revision 已不可执行时返回永久错误
+`CATALOG_REVISION_MISSING`。
 
 Model Revision 固定 Adapter、上游模型 ID、Param/Input Contract 和能力；Rate Card Revision 固定
 价格。真实调用前，Task 先保存 `invoke_logical_request_id + invoke_prepared_at`；Invoke 再从该 Model

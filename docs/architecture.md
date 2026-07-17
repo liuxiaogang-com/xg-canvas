@@ -90,9 +90,9 @@ Pricing；对象未知字段、隐式必填、空/通配 Channel、重复 meter 
 跨 Source Provider slug、同 Provider Channel slug 或全局 model_id 冲突同样拒绝；历史 Pin 索引中的
 损坏 Revision、`content_digest` 不一致或仍 active 但未被当前 Model 反向引用的 Rate Card 不能被
 跳过后继续发布部分 Snapshot。
-统一可用性还要求 Model/Provider/允许 Channel 的当前 Revision 可用且三类 Settings 均启用。Live
-模式还要求候选 Channel 下存在启用 Credential，但不检查其验证状态或过期时间；Demo 模式只豁免
-Credential 要求。公开列表按当前执行模式应用同一门禁，并额外要求 `visibility=public`。
+统一可用性还要求 Model/Provider/允许 Channel 的当前 Revision 可用、三类 Settings 均启用，并且
+候选 Channel 下存在启用 Credential；不检查 Credential 的验证状态或过期时间。公开列表应用同一
+门禁，并额外要求 `visibility=public`。
 
 Feature Config 只保存有序 `model_resource_uid` 绑定。功能所需 task type 由代码拥有的 Feature
 Contract 决定，当前 `ai-analysis`、`agent`、`script-extract` 均为 `gen.text`；保存与运行时解析都会
@@ -134,10 +134,9 @@ server binding 的 `metadata.library.provider_refs`,详见
 pending | queued | running | succeeded | failed | cancelled
 ```
 
-Task 创建时保存 `model_resource_uid/model_revision_id/rate_card_revision_id/catalog_epoch/execution_mode`。
-所有 Task（包括 Demo）在创建时固定 Revision。`execution_mode=demo` 在选模时只豁免 Credential
-门禁并选择 MockExecutor，仍要求当前 Revision、Runtime Settings、allowed Channel 与 Adapter 契约
-成立。固定 Revision 无法解析时以 `CATALOG_REVISION_MISSING` 失败，不能静默切到当前模型。
+Task 创建时保存 `model_resource_uid/model_revision_id/rate_card_revision_id/catalog_epoch`。所有 Task
+在创建时固定 Revision，并且只执行真实厂商调用。固定 Revision 无法解析时以
+`CATALOG_REVISION_MISSING` 失败，不能静默切到当前模型。
 
 真实分发前 Task 写入 `invoke_logical_request_id/invoke_prepared_at`，物理 Request Log 在调用 Adapter
 前保存精确 `channel_resource_uid/channel_revision_id/channel_route/credential_id`；Task 成功或异步

@@ -42,19 +42,18 @@ XG Canvas 是类似 ComfyUI + Dify + TapNow 的 AI 创意项目管理与画布�
 
 ## 4. 模型可用性定义
 
-Live 与 Demo 共用以下基础门禁：
+模型必须同时满足以下可用性门禁：
 
 - 当前 Model Revision 为 `active|deprecated`，且对应 `model_settings.enabled=true`
 - 当前 Provider Revision 存在，且对应 `provider_installations.enabled=true`
-- 至少一个模型允许的当前 Channel Revision 对应 `channel_installations.enabled=true`
+- 至少一个模型允许的当前 Channel Revision 对应 `channel_installations.enabled=true`，并且该 Channel 下
+  存在 `enabled=true` 的 Credential
 
-Adapter 契约必须成立。Live 可用性还要求候选 Channel 下存在 `enabled=true` 的 Credential；Demo
-可选择性只豁免该凭证要求，仍不能绕过 Revision、Settings、allowed Channel 或 Adapter 门禁。
-公开模型列表按实例当前 `execution_mode` 使用相同规则，并额外要求
-`model_settings.visibility=public`。Live 不要求 Credential `is_valid=true`，也不因为 `expires_at`
-过滤；验证状态是运营提示，不是可用性门禁。所有 Task（包括 Demo）创建时固定模型与费率 Revision；
-Demo 使用 MockExecutor，真实分发后还会固定精确 Channel Revision/Route/Credential。Poll、Cancel 与
-恢复不重新选路，目录更新不改变任务语义。
+Adapter 契约也必须成立。公开模型列表使用相同规则，并额外要求
+`model_settings.visibility=public`。可用性不要求 Credential `is_valid=true`，也不因为 `expires_at`
+过滤；验证状态是运营提示，不是可用性门禁。所有 Task 创建时固定模型与费率 Revision；真实分发后
+还会固定精确 Channel Revision/Route/Credential。Poll、Cancel 与恢复不重新选路，目录更新不改变
+任务语义。
 
 当前 Beta 只接受全新的 Catalog-native 数据库，不读取此前的模型行或任务记录。部署该基线时必须
 使用新 PostgreSQL 数据卷；后续进入结构冻结期后再恢复追加式升级策略。

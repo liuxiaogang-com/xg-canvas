@@ -75,6 +75,8 @@ GET    /api/v1/auth/oauth/:key/callback
 
 密码方式启用时，canvas-web 同时提供明确的登录与注册模式；密码注册要求邮箱、显示名和至少
 12 位密码，成功后立即签发与登录相同的 opaque session，不要求重启服务。
+`GET /auth/config` 返回 `{ methods, oauth }`，只公布当前实例实际可用的密码、验证码和真实 OAuth
+方式；不提供跳过认证的登录入口或本地身份 Provider。
 
 ### Instance Setup
 
@@ -131,10 +133,9 @@ mime type 或服务端 metadata。服务端在签名 URL 前对照权威 Asset `
 不从文件名猜类型；音频同样使用 `references[]` 并声明 `type=audio`。带 `source_node_id` 时必须同时
 提供同工作区的 `project_id`，且调用者需有 `project.canvas.node.edit`。
 
-客户端只能提交稳定公开 `model_id`，不能提交 Catalog Pin、`catalog_epoch`、路由或
-`execution_mode`。服务端在同一可用性解析中为每个 Task（包括 Demo）写入
-`model_resource_uid/model_revision_id/rate_card_revision_id/catalog_epoch`，并按实例运行方式写入
-`execution_mode=live|demo`。Retry 沿用原 Pin。
+客户端只能提交稳定公开 `model_id`，不能提交 Catalog Pin、`catalog_epoch` 或路由。服务端在同一
+可用性解析中为每个 Task 写入
+`model_resource_uid/model_revision_id/rate_card_revision_id/catalog_epoch`。Retry 沿用原 Pin。
 
 真实分发建立内部 `invoke_logical_request_id`；每个物理厂商调用先写一条独立
 `request_log(id, attempt_no, status=pending)`，随后才发送请求。分发选中的
@@ -218,10 +219,10 @@ POST   /api/v1/models/estimate-cost
 两个 POST 的 body 都使用 `{ model_id, params }`。Model ID 可能包含 `/`，因此 schema 使用 query、
 validate/estimate 使用 body，不把 ID 放入 path。
 
-模型可用性由 `ModelAvailabilityService` 统一判定：Live 与 Demo 都要求当前 Model/Provider 和模型
-允许的 Channel 具有启用的 Runtime Settings；Live 还要求候选 Channel 下存在启用 Credential，Demo
-只豁免凭证要求。公开列表按当前实例执行模式应用同一门禁，并额外要求 `visibility=public`。
-`credential.is_valid` 和 `expires_at` 只用于运营提示，不参与 Live 过滤。`model_id` 是不可修改的
+模型可用性由 `ModelAvailabilityService` 统一判定：当前 Model/Provider 和模型允许的 Channel 必须
+具有启用的 Runtime Settings，并且候选 Channel 下存在启用 Credential。公开列表应用同一门禁，并
+额外要求 `visibility=public`。`credential.is_valid` 和 `expires_at` 只用于运营提示，不参与可用性过滤。
+`model_id` 是不可修改的
 公开稳定键，内部关联使用 `resource_uid`。
 
 Schema 与价格响应来自当前 Model/Rate Card Revision。`param_schema` 只使用规范紧凑 Schema，价格

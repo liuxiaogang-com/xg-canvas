@@ -65,7 +65,7 @@ canvas-api -> PostgreSQL / Redis / 远程 S3/R2
 4. 任务即真相：任何长任务先落 `tasks` 表，刷新页面不丢；worker 用 `SELECT ... FOR UPDATE SKIP LOCKED` 拿单。
 5. 资产先落桶：Adapter 拿到第三方结果后必须经 `_shared/asset-downloader` 下载到远程 S3/R2 兼容桶，再返回本地资产描述。
 6. Redis 全局前缀是 `xgcanvas:`，所有客户端必须经 `RedisModule`，禁止 `new Redis()`。
-7. 模型可用性统一经过 `ModelAvailabilityService`：当前 Model/Provider/允许的 Channel Revision 均可用于新任务，且 `model_settings/provider_installations/channel_installations` 均启用。Live 模式还要求候选 Channel 下存在启用凭证，但不要求凭证校验通过或未过期；Demo 模式只豁免凭证要求。公开列表按当前执行模式应用同一门禁，并额外要求 `visibility=public`。
+7. 模型可用性统一经过 `ModelAvailabilityService`：当前 Model/Provider/允许的 Channel Revision 均可用于新任务，`model_settings/provider_installations/channel_installations` 均启用，并且候选 Channel 下存在启用 Credential。Credential 不要求验证通过或未过期；公开列表应用同一门禁，并额外要求 `visibility=public`。
 8. 模型启用规则：新官方资源的 Runtime Settings 默认关闭；凭证向导必须明确绑定一个允许的 Channel，并在同一次 `RegistryBootstrapService.mutateLocal` 事务中保存凭证、导入所选本地模型和启用所选官方模型。本地结构修改只能追加 Revision并原子切换 Snapshot。`slug/model_id` 创建后不可修改；换标识必须创建新资源并 Retire 原资源。
 9. 即梦 CLI 必须随 server/Docker 镜像打包，登录态由 volume 持久化；旧 `account-cli-bridge` 相关代码和配置不再恢复。
 10. 不主动写 README.md / 中间总结文档，除非用户明确要求。
@@ -120,7 +120,7 @@ docker compose up -d
 ## 关键环境变量
 
 - `DREAMINA_CLI_PATH`
-- `PUBLIC_BASE_URL` / `DEMO_MODE`（可选运行覆盖）
+- `PUBLIC_BASE_URL`（可选运行覆盖）
 - `CANVAS_API_IMAGE` / `CANVAS_WEB_IMAGE` / `POSTGRES_IMAGE` / `REDIS_IMAGE`（可选镜像覆盖）
 - 加密根密钥默认自动生成并持久化到独立 volume；旧 `ENCRYPTION_KEY_V*` 仅用于兼容导入/轮转
 - 首次管理员通过 `/setup` 创建，不使用默认账号或 `SETUP_TOKEN`

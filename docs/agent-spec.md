@@ -48,7 +48,7 @@ interface ToolOutcome {
 - Feature 所需 task type 是代码契约，不是管理员可编辑字段：当前 `agent`、`ai-analysis`、
   `script-extract` 均固定要求 `gen.text`。Feature Config API 返回 `required_task_type`，保存和运行时都
   拒绝不兼容 Model。
-- 生成工具创建的每个 Task 都固定 Model/Rate Card Revision，并写入 `execution_mode=live|demo`；
+- 生成工具创建的每个 Task 都固定 Model/Rate Card Revision，并只执行真实厂商调用；
   对话流式调用在开始时捕获一次当前 Registry Snapshot，单次调用中不得切换 Revision。
 - **规划中的候选工具类别（当前未开放工具循环）**：`generate_image` / `generate_video` / `generate_text` / `create_node` / `edit_node` / `connect_nodes` / `extract_characters` …
 
