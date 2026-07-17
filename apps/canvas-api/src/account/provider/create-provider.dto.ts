@@ -1,4 +1,19 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsArray, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  ArrayMinSize,
+  IsBoolean,
+  IsInt,
+  IsIn,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { PROVIDER_AUTH_METHODS, type ProviderAuthMethod } from '@xgcanvas/shared-types';
+import {
+  HasNoSecretLikeConfigKeys,
+  IsSafeOutboundBaseUrl,
+} from '../catalog/outbound-config.validator';
 
 export class CreateProviderDto {
   @IsString()
@@ -19,21 +34,27 @@ export class CreateProviderDto {
 
   @IsOptional()
   @IsString()
+  @IsSafeOutboundBaseUrl()
   base_url?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  auth_method?: string;
+  @IsIn(PROVIDER_AUTH_METHODS)
+  auth_method?: ProviderAuthMethod;
 
   @IsOptional()
-  auth_config?: Record<string, any>;
+  @IsObject()
+  @HasNoSecretLikeConfigKeys('auth_config')
+  auth_config?: Record<string, unknown>;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   invocation_methods?: string[];
 
-  @IsOptional()
-  adapter_keys?: string[];
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  adapter_keys: string[];
 
   @IsOptional()
   @IsString()

@@ -1,0 +1,16 @@
+version: "1.0"
+provider:
+  resource_uid: f6e2a43a-44be-4b38-a86a-13d19308b5a2
+  revision: 1
+  slug: dreamina
+  display_name: 即梦 (Dreamina)
+  icon_url: /icons/dreamina.svg
+  homepage_url: https://www.dreamina.ai
+  auth_method: cli_login
+  adapter_keys:
+    - dreamina-cli
+  invocation_methods:
+    - cli
+  supported_regions:
+    - cn
+  description: 抖音即梦 CLI 生图/视频，需高级及以上会员

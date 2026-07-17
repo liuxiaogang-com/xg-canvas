@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AdaptersModule } from './adapters/adapters.module';
 import { ChannelModule } from './channel/channel.module';
-import { ConfigSyncModule } from './config-sync/config-sync.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { CredentialModule } from './credential/credential.module';
 import { DreaminaModule } from './dreamina/dreamina.module';
 import { FeatureConfigModule } from './feature-config/feature-config.module';
@@ -24,6 +24,7 @@ import { StorageModule } from './storage';
 @Module({
   imports: [
     RedisModule,
+    CatalogModule,
     StorageModule,
     AdaptersModule,
     RegistryModule,
@@ -31,7 +32,6 @@ import { StorageModule } from './storage';
     ChannelModule,
     CredentialModule,
     ModelDefinitionModule,
-    ConfigSyncModule,
     DreaminaModule,
     FeatureConfigModule,
     InvokeModule,

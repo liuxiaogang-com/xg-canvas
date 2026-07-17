@@ -1,9 +1,8 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { ProviderAdapter } from '@xgcanvas/adapters-contract';
+import { BUILTIN_ADAPTER_KEYS, type BuiltinAdapterKey } from '@xgcanvas/shared-types';
 
 import { OpenAICompatAdapter } from './openai-compat/adapter';
-import { DoubaoImageAdapter } from './doubao-image/adapter';
-import { DoubaoVideoAdapter } from './doubao-video/adapter';
 import { BailianDashscopeAdapter } from './bailian-dashscope/adapter';
 import { DreaminaCliAdapter } from './dreamina-cli/adapter';
 import { DreaminaCliRunner } from '../dreamina/dreamina-cli.runner';
@@ -25,11 +24,16 @@ export class AdapterRegistry implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.register(new OpenAICompatAdapter());
-    this.register(new DoubaoImageAdapter());
-    this.register(new DoubaoVideoAdapter());
-    this.register(new BailianDashscopeAdapter());
-    this.register(new DreaminaCliAdapter(this.runner, this.storage));
+    const factories: Record<BuiltinAdapterKey, () => ProviderAdapter> = {
+      'openai-compat': () => new OpenAICompatAdapter(),
+      'bailian-dashscope': () => new BailianDashscopeAdapter(),
+      'dreamina-cli': () => new DreaminaCliAdapter(this.runner, this.storage),
+    };
+    for (const key of BUILTIN_ADAPTER_KEYS) {
+      const adapter = factories[key]();
+      if (adapter.key !== key) throw new Error(`adapter factory key mismatch: ${key}`);
+      this.register(adapter);
+    }
   }
 
   register(a: ProviderAdapter): void {

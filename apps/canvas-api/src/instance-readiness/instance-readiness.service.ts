@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { ModelListService } from '../account/model-definition/model-list.service';
+import { AccountModelsClient } from '../account-client';
 import { ObjectStorageClient } from '../account/storage/object-storage.client';
 import { SmtpSettingsClient } from '../account/storage/smtp-settings.client';
 import {
@@ -31,7 +31,7 @@ export class InstanceReadinessService {
   constructor(
     private readonly storage: ObjectStorageClient,
     private readonly smtp: SmtpSettingsClient,
-    private readonly models: ModelListService,
+    private readonly models: AccountModelsClient,
   ) {}
 
   async snapshot(): Promise<InstanceReadinessSnapshot> {
@@ -47,12 +47,8 @@ export class InstanceReadinessService {
       for (const s of entry.surfaces) surfaceSet.add(s);
     }
     for (const surface of surfaceSet) {
-      const required = READINESS_CATALOG.filter(
-        (e) => !e.planned && e.surfaces.includes(surface),
-      );
-      const missing = required
-        .filter((e) => byId.get(e.id) !== 'ready')
-        .map((e) => e.id);
+      const required = READINESS_CATALOG.filter((e) => !e.planned && e.surfaces.includes(surface));
+      const missing = required.filter((e) => byId.get(e.id) !== 'ready').map((e) => e.id);
       surfaces[surface] = { ready: missing.length === 0, missing };
     }
     return { items, surfaces };

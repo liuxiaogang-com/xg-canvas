@@ -11,6 +11,7 @@ import type { AssetDownloaderPort, DownloadInput } from '@xgcanvas/adapters-cont
 import { ERROR_CODES, type StorageDescriptor } from '@xgcanvas/shared-types';
 
 import { ObjectStorageClient } from './object-storage.client';
+import { guardedFetch } from '../../common/http/guarded-outbound';
 
 const DEFAULT_MAX_BYTES = 512 * 1024 * 1024; // 512MB
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -39,9 +40,12 @@ export class AssetDownloaderService {
   }
 
   private async run(ctx: KeyContext, input: DownloadInput): Promise<StorageDescriptor> {
-    const max = input.max_bytes ?? DEFAULT_MAX_BYTES;
+    const max = Math.min(input.max_bytes ?? DEFAULT_MAX_BYTES, DEFAULT_MAX_BYTES);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error('asset download timed out')), DEFAULT_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => controller.abort(new Error('asset download timed out')),
+      DEFAULT_TIMEOUT_MS,
+    );
     const abortFromCaller = () => controller.abort(ctx.signal?.reason);
     ctx.signal?.addEventListener('abort', abortFromCaller, { once: true });
     if (ctx.signal?.aborted) abortFromCaller();
@@ -49,10 +53,14 @@ export class AssetDownloaderService {
     const tempPath = join(dir, 'download.bin');
 
     try {
-      const res = await fetch(input.url, {
-        signal: controller.signal,
-        headers: input.headers,
-      });
+      const res = await guardedFetch(
+        input.url,
+        {
+          signal: controller.signal,
+          headers: input.headers,
+        },
+        { redirect: 'follow' },
+      );
       if (!res.ok || !res.body) {
         throw new AdapterError({
           code: ERROR_CODES.ASSET_DOWNLOAD_FAILED,
@@ -113,10 +121,12 @@ async function streamToFile(
     transform(chunk: Buffer, _encoding, callback) {
       size += chunk.length;
       if (size > maxBytes) {
-        callback(new AdapterError({
-          code: ERROR_CODES.ASSET_TOO_LARGE,
-          message: `asset exceeded ${maxBytes} bytes`,
-        }));
+        callback(
+          new AdapterError({
+            code: ERROR_CODES.ASSET_TOO_LARGE,
+            message: `asset exceeded ${maxBytes} bytes`,
+          }),
+        );
         return;
       }
       hash.update(chunk);

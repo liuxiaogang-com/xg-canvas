@@ -7,14 +7,22 @@ import {
   Param,
   Body,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
 import { RequirePerm } from '../../authz/require-perm.decorator';
 import { CredentialService } from './credential.service';
+import { CredentialCatalogService } from './credential-catalog.service';
 import { CreateCredentialDto } from './create-credential.dto';
 import { UpdateCredentialDto } from './update-credential.dto';
 import { ProviderModelsService } from './provider-models.service';
+import {
+  AddCredentialWithModelsDto,
+  ImportVendorModelsDto,
+  ProbeVendorModelsDto,
+  VendorModelsQueryDto,
+} from './credential-models.dto';
 
 @ApiTags('Credentials')
 @RequirePerm('system.credential.manage', { scope: 'system' })
@@ -22,14 +30,17 @@ import { ProviderModelsService } from './provider-models.service';
 export class CredentialController {
   constructor(
     private readonly credentialService: CredentialService,
+    private readonly credentialCatalog: CredentialCatalogService,
     private readonly providerModels: ProviderModelsService,
   ) {}
 
+  @Get('credential-catalog')
+  catalogView() {
+    return this.credentialCatalog.getView();
+  }
+
   @Post('channels/:channelId/credentials')
-  create(
-    @Param('channelId', ParseUUIDPipe) channelId: string,
-    @Body() dto: CreateCredentialDto,
-  ) {
+  create(@Param('channelId', ParseUUIDPipe) channelId: string, @Body() dto: CreateCredentialDto) {
     return this.credentialService.create(channelId, dto);
   }
 
@@ -72,34 +83,39 @@ export class CredentialController {
 
   /** Pull the provider's live model catalogue, flagged with which are already imported. */
   @Get('providers/:id/models')
-  vendorModels(@Param('id', ParseUUIDPipe) id: string) {
-    return this.providerModels.listVendorModels(id);
+  vendorModels(@Param('id', ParseUUIDPipe) id: string, @Query() query: VendorModelsQueryDto) {
+    return this.providerModels.listVendorModels(
+      id,
+      query.channel_resource_uid,
+      query.contract_profile,
+    );
   }
 
-  /** Enable selected vendor models as manual model definitions. */
+  /** Import selected vendor ids as local Catalog model resources. */
   @Post('providers/:id/models/import')
-  importModels(@Param('id', ParseUUIDPipe) id: string, @Body() body: { model_ids: string[] }) {
-    return this.providerModels.importModels(id, body.model_ids ?? []);
+  importModels(@Param('id', ParseUUIDPipe) id: string, @Body() body: ImportVendorModelsDto) {
+    return this.providerModels.importModels(
+      id,
+      body.channel_resource_uid,
+      body.vendor_model_ids ?? [],
+      body.contract_profile,
+    );
   }
 
   /** Wizard step: probe a provider's /models with a raw key (also a connectivity check). */
   @Post('providers/:id/probe-models')
-  probeModels(@Param('id', ParseUUIDPipe) id: string, @Body() body: { api_key: string }) {
-    return this.providerModels.probeModels(id, body.api_key ?? '');
+  probeModels(@Param('id', ParseUUIDPipe) id: string, @Body() body: ProbeVendorModelsDto) {
+    return this.providerModels.probeModels(
+      id,
+      body.channel_resource_uid,
+      body.api_key,
+      body.contract_profile,
+    );
   }
 
-  /** Credential-centric add-key: auto default channel + credential + enable selected models. */
+  /** Atomically bind one exact Channel, Credential and selected Catalog models. */
   @Post('credentials')
-  addCredential(
-    @Body()
-    body: {
-      provider_id: string;
-      label?: string;
-      payload: Record<string, string>;
-      model_ids?: string[];
-      preset_model_ids?: string[];
-    },
-  ) {
+  addCredential(@Body() body: AddCredentialWithModelsDto) {
     return this.providerModels.addCredentialWithModels(body);
   }
 }

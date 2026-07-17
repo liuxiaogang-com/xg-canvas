@@ -3,28 +3,29 @@ import { ConfigService } from '@nestjs/config';
 
 import { validateParams } from '@xgcanvas/constraint-engine';
 
-import type { ModelListItem } from '../account/model-definition/model-list.service';
-import { ModelListService } from '../account/model-definition/model-list.service';
-import { DemoModelRegistry } from './demo-model-registry';
+import { AccountModelsClient, type AccountModelListItem } from '../account-client';
 import { paramSchemaToParamSpecs } from './param-schema';
 import { ModelParamsDto } from './dto';
-import type { CostEstimate, ModelSchemaResponse, RichModelSummary, ValidateParamsResult } from './model.types';
+import type {
+  CostEstimate,
+  ModelSchemaResponse,
+  RichModelSummary,
+  ValidateParamsResult,
+} from './model.types';
 
 /**
  * Model read API consumed by the canvas inline form (list / schema / cost /
- * validate). Model ids contain '/' (e.g. jimeng/text-v1), so the id is passed
- * via query/body rather than a path param. In DEMO_MODE everything is served
- * by DemoModelRegistry (no account-api dependency); otherwise list falls back
- * to the account registry snapshot and the rich endpoints are filled in by the
- * account->canvas merge (M5 plan §4).
+ * validate). Model ids may contain '/' (e.g. custom/vendor/model-v1), so the id is passed
+ * via query/body rather than a path param. Both live and demo execution read
+ * the same immutable Catalog snapshot; demo mode only relaxes the requirement
+ * for an enabled credential because execution is handled by the mock runner.
  */
 @Controller('models')
 export class ModelsController {
   private readonly demoMode: boolean;
 
   constructor(
-    private readonly modelList: ModelListService,
-    private readonly demo: DemoModelRegistry,
+    private readonly models: AccountModelsClient,
     config: ConfigService,
   ) {
     this.demoMode = config.get<string>('DEMO_MODE', 'false') === 'true';
@@ -32,22 +33,22 @@ export class ModelsController {
 
   @Get()
   async list(@Query('task_type') taskType?: string): Promise<RichModelSummary[]> {
-    if (this.demoMode) return this.demo.list(taskType);
-    const models = await this.modelList.getAvailableModels({ taskType });
+    const models = await this.models.getAvailableModels({
+      taskType,
+      executionMode: this.executionMode,
+    });
     return models.map(toRichModel);
   }
 
   @Get('schema')
   async schema(@Query('id') id: string): Promise<ModelSchemaResponse> {
-    if (this.demoMode) {
-      const s = this.demo.schema(id);
-      if (!s) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: id });
-      return s;
-    }
-    const m = await this.modelList.getModelDetail(id);
+    const m = await this.models.getModelDetail(id, this.executionMode);
     if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: id });
     return {
       model_id: m.model_id,
+      model_resource_uid: m.resource_uid,
+      model_revision_id: m.origin.revision_id,
+      catalog_epoch: m.catalog_epoch,
       params: paramSchemaToParamSpecs(m.param_schema as { properties?: Record<string, unknown> }),
       defaults: (m.param_schema?.defaults as Record<string, unknown>) ?? {},
       input_contract: m.input_contract,
@@ -56,26 +57,30 @@ export class ModelsController {
 
   @Post('estimate-cost')
   async estimateCost(@Body() body: ModelParamsDto): Promise<CostEstimate> {
-    if (this.demoMode) return this.demo.estimateCost(body.model_id, body.params ?? {});
-    const m = await this.modelList.getModelDetail(body.model_id);
-    if (!m) return { estimated_credits: 0, currency: 'credits', breakdown: '' };
-    const e = this.modelList.estimateCost(m, body.params ?? {});
-    return { estimated_credits: e.estimated_credits, currency: 'credits', breakdown: e.breakdown };
+    const m = await this.models.getModelDetail(body.model_id, this.executionMode);
+    if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: body.model_id });
+    return this.models.estimateCost(m, body.params ?? {});
   }
 
   @Post('validate-params')
   async validate(@Body() body: ModelParamsDto): Promise<ValidateParamsResult> {
-    if (this.demoMode) return this.demo.validateParams(body.model_id, body.params ?? {});
-    const m = await this.modelList.getModelDetail(body.model_id);
+    const m = await this.models.getModelDetail(body.model_id, this.executionMode);
     if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: body.model_id });
     const r = validateParams(body.params ?? {}, m.param_schema, m.param_constraints);
     return { ok: r.valid, errors: r.errors.map((x) => ({ field: x.field, message: x.message })) };
   }
+
+  private get executionMode(): 'live' | 'demo' {
+    return this.demoMode ? 'demo' : 'live';
+  }
 }
 
-function toRichModel(m: ModelListItem): RichModelSummary {
+function toRichModel(m: AccountModelListItem): RichModelSummary {
   return {
-    id: m.model_id,
+    model_id: m.model_id,
+    model_resource_uid: m.model_resource_uid,
+    model_revision_id: m.model_revision_id,
+    catalog_epoch: m.catalog_epoch,
     display_name: m.display_name,
     description: m.description,
     provider: {
@@ -89,6 +94,7 @@ function toRichModel(m: ModelListItem): RichModelSummary {
     supports_streaming: m.supports_streaming,
     tags: m.tags,
     deprecated: m.deprecated,
+    deprecated_message: m.deprecated_message,
     input_contract: m.input_contract,
     pricing_summary: m.pricing_summary ?? '',
   };

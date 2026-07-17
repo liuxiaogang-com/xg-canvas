@@ -3,6 +3,7 @@ template_id: video-generation
 display_name: "视频生成基础参数"
 
 schema:
+  version: "1.0"
   groups:
     - id: input
       label: "输入"

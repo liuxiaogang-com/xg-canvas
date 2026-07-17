@@ -41,13 +41,14 @@ export class BillingService {
               COUNT(*) FILTER (WHERE status='error')::int AS error,
               COALESCE(SUM((usage->>'input_tokens')::numeric),0)::float8 AS input_tokens,
               COALESCE(SUM((usage->>'output_tokens')::numeric),0)::float8 AS output_tokens
-         FROM ops.request_logs`,
+         FROM ops.request_logs
+        WHERE source = 'invoke' AND attempt_no IS NOT NULL`,
     )) as Array<Record<string, number>>;
 
     const byCur = (await this.repo.query(
       `SELECT cost_currency AS currency, COALESCE(SUM(cost),0)::float8 AS cost
          FROM ops.request_logs
-        WHERE cost IS NOT NULL
+        WHERE source = 'invoke' AND attempt_no IS NOT NULL AND cost IS NOT NULL
         GROUP BY cost_currency
         ORDER BY cost DESC`,
     )) as Array<{ currency: string; cost: number }>;
@@ -99,7 +100,7 @@ export class BillingService {
               COALESCE(SUM((r.usage->>'output_tokens')::numeric),0)::float8 AS output_tokens
          FROM ops.request_logs r
          ${joinClause}
-        WHERE r.status='success'
+        WHERE r.source='invoke' AND r.attempt_no IS NOT NULL AND r.status='success'
         GROUP BY ${keyExpr}, ${labelExpr === keyExpr ? '' : labelExpr + ','} r.cost_currency
         ORDER BY cost DESC NULLS LAST`,
     )) as Array<Record<string, unknown>>;

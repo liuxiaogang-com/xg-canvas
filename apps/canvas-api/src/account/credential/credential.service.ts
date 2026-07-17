@@ -1,336 +1,299 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-
-import { ModelChannel } from '../channel/channel.entity';
-import { DreaminaCliRunner } from '../dreamina/dreamina-cli.runner';
-import { ModelProvider } from '../provider/provider.entity';
+import { isCatalogCurrentLifecycle } from '@xgcanvas/model-catalog';
+import { IsNull, Repository } from 'typeorm';
+import { RegistryBootstrapService, RegistryService } from '../registry';
 import { CreateCredentialDto } from './create-credential.dto';
+import { assertCredentialContract } from './credential-contract';
 import { ModelCredential } from './credential.entity';
+import { presentCredential } from './credential.presenter';
+import {
+  CredentialVendorStatusService,
+  type ProviderStatus,
+} from './credential-vendor-status.service';
 import { EncryptionService } from './encryption.service';
+import { ProviderCatalogWritesService } from './provider-catalog-writes.service';
 import { UpdateCredentialDto } from './update-credential.dto';
 
-/** Safe credential shape returned to clients; never contains decrypted values. */
+export type { ProviderStatus, ProviderStatusItem } from './credential-vendor-status.service';
+
 export interface CredentialView {
   id: string;
-  channel_id: string;
+  channel_resource_uid: string;
   label: string | null;
-  credential_type: string;
+  credential_type: 'api_key' | 'cli_session';
   payload_fields: string[];
   enabled: boolean;
   is_valid: boolean;
   last_validated_at: Date | null;
   validation_error: string | null;
   expires_at: Date | null;
-  auto_refresh: boolean;
   last_used_at: Date | null;
-  total_usage_count: number;
-  source: string;
+  total_usage_count: string;
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
-export interface ProviderStatusItem {
-  label: string;
-  value: string;
-  tone?: 'success' | 'warning' | 'danger' | 'default';
-}
-
-/** Neutral account status cell: balance, membership, credits, expiry, etc. */
-export interface ProviderStatus {
-  items: ProviderStatusItem[];
-  available?: boolean;
-  note?: string;
-}
-
 @Injectable()
 export class CredentialService {
-  private readonly logger = new Logger(CredentialService.name);
-
   constructor(
     @InjectRepository(ModelCredential)
     private readonly credentialRepo: Repository<ModelCredential>,
-    @InjectRepository(ModelChannel)
-    private readonly channelRepo: Repository<ModelChannel>,
-    @InjectRepository(ModelProvider)
-    private readonly providerRepo: Repository<ModelProvider>,
+    private readonly registry: RegistryService,
+    private readonly registryBootstrap: RegistryBootstrapService,
     private readonly encryptionService: EncryptionService,
-    private readonly dreamina: DreaminaCliRunner,
+    private readonly vendorStatus: CredentialVendorStatusService,
+    private readonly catalogWrites: ProviderCatalogWritesService,
   ) {}
 
-  async create(channelId: string, dto: CreateCredentialDto): Promise<CredentialView> {
+  async create(channelResourceUid: string, dto: CreateCredentialDto): Promise<CredentialView> {
     const credentials = dto.credentials ?? {};
-    const payloadFields = Object.keys(credentials);
-    const { encrypted, keyId } = await this.encryptionService.encrypt(credentials);
-
-    const credential = this.credentialRepo.create({
-      channel_id: channelId,
-      label: dto.label,
-      credential_type: dto.credential_type,
-      encrypted_payload: encrypted,
-      encryption_key_id: keyId,
-      payload_fields: payloadFields,
-      enabled: dto.enabled ?? true,
-      expires_at: dto.expires_at ? new Date(dto.expires_at) : undefined,
-      auto_refresh: dto.auto_refresh ?? false,
-      created_by: dto.created_by,
+    const credential = await this.registryBootstrap.mutateLocal(async (manager) => {
+      const { provider } = await this.catalogWrites.requireCredentialOwnerInTransaction(
+        manager,
+        channelResourceUid,
+      );
+      assertCredentialContract(provider.document.auth_method, dto.credential_type, credentials);
+      const { encrypted, keyId } = await this.encryptionService.encrypt(credentials);
+      const repo = manager.getRepository(ModelCredential);
+      return repo.save(
+        repo.create({
+          channel_resource_uid: channelResourceUid,
+          label: dto.label,
+          credential_type: dto.credential_type,
+          encrypted_payload: encrypted,
+          encryption_key_id: keyId,
+          payload_fields: Object.keys(credentials),
+          enabled: dto.enabled ?? true,
+          expires_at: dto.expires_at ? new Date(dto.expires_at) : undefined,
+        }),
+      );
     });
-
-    return this.toView(await this.credentialRepo.save(credential));
+    return presentCredential(credential);
   }
 
-  async findAllByChannel(channelId: string): Promise<CredentialView[]> {
+  async findAllByChannel(channelResourceUid: string): Promise<CredentialView[]> {
     const credentials = await this.credentialRepo.find({
-      where: { channel_id: channelId },
+      where: { channel_resource_uid: channelResourceUid, archived_at: IsNull() },
       order: { created_at: 'DESC' },
     });
-    return credentials.map((c) => this.toView(c));
+    return credentials.map(presentCredential);
   }
 
   async findOne(id: string): Promise<CredentialView> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
-    if (!credential) throw new NotFoundException(`Credential ${id} not found`);
-    return this.toView(credential);
+    return presentCredential(await this.requireCredential(id));
   }
 
   async update(id: string, dto: UpdateCredentialDto): Promise<CredentialView> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
-    if (!credential) throw new NotFoundException(`Credential ${id} not found`);
-
-    if (dto.credentials) {
-      const credentials = dto.credentials ?? {};
-      const payloadFields = Object.keys(credentials);
-      const { encrypted, keyId } = await this.encryptionService.encrypt(credentials);
-      credential.encrypted_payload = encrypted;
-      credential.encryption_key_id = keyId;
-      credential.payload_fields = payloadFields;
-    }
-
-    if (dto.label !== undefined) credential.label = dto.label;
-    if (dto.credential_type !== undefined) credential.credential_type = dto.credential_type;
-    if (dto.enabled !== undefined) credential.enabled = dto.enabled;
-    if (dto.expires_at !== undefined) credential.expires_at = new Date(dto.expires_at);
-    if (dto.auto_refresh !== undefined) credential.auto_refresh = dto.auto_refresh;
-
-    return this.toView(await this.credentialRepo.save(credential));
+    const credential = await this.registryBootstrap.mutateLocal(async (manager) => {
+      const repo = manager.getRepository(ModelCredential);
+      const row = await repo.findOneBy({ id, archived_at: IsNull() });
+      if (!row) throw new NotFoundException(`Credential ${id} not found`);
+      const { provider } = await this.catalogWrites.requireCredentialOwnerInTransaction(
+        manager,
+        row.channel_resource_uid,
+      );
+      const replacement = dto.credentials
+        ? dto.credentials
+        : dto.enabled === true
+          ? await this.encryptionService.decrypt(row.encrypted_payload)
+          : null;
+      if (replacement) {
+        assertCredentialContract(provider.document.auth_method, row.credential_type, replacement);
+      }
+      const encrypted = dto.credentials
+        ? await this.encryptionService.encrypt(dto.credentials)
+        : null;
+      if (encrypted && dto.credentials) {
+        row.encrypted_payload = encrypted.encrypted;
+        row.encryption_key_id = encrypted.keyId;
+        row.payload_fields = Object.keys(dto.credentials);
+      }
+      if (dto.label !== undefined) row.label = dto.label;
+      if (dto.enabled !== undefined) row.enabled = dto.enabled;
+      if (dto.expires_at !== undefined) row.expires_at = new Date(dto.expires_at);
+      return repo.save(row);
+    });
+    return presentCredential(credential);
   }
 
   async remove(id: string): Promise<void> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
-    if (!credential) throw new NotFoundException(`Credential ${id} not found`);
-    await this.credentialRepo.remove(credential);
+    await this.registryBootstrap.mutateLocal(async (manager) => {
+      const repo = manager.getRepository(ModelCredential);
+      const credential = await repo.findOneBy({ id, archived_at: IsNull() });
+      if (!credential) throw new NotFoundException(`Credential ${id} not found`);
+      credential.enabled = false;
+      credential.archived_at = new Date();
+      await repo.save(credential);
+    });
   }
 
   async validate(id: string): Promise<CredentialView> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
-    if (!credential) throw new NotFoundException(`Credential ${id} not found`);
-
+    const credential = await this.requireCredential(id);
     let valid = false;
     let error: string | undefined;
     try {
-      if (await this.isDreaminaCredential(credential)) {
-        const status = await this.dreamina.credit();
-        valid = status.logged_in;
-        error = status.logged_in ? undefined : status.error ?? 'Dreamina CLI is not logged in';
+      if (this.isDreaminaCredential(credential)) {
+        const status = await this.vendorStatus.validateDreamina();
+        valid = status.ok;
+        error = status.message;
       } else {
         const payload = await this.encryptionService.decrypt(credential.encrypted_payload);
         const apiKey = typeof payload.api_key === 'string' ? payload.api_key : undefined;
         if (!apiKey) valid = true;
         else {
-          const base = await this.resolveBaseUrl(credential.channel_id);
+          const base = this.resolveBaseUrl(credential.channel_resource_uid);
           if (!base) error = 'Unable to resolve provider base_url';
           else {
-            const r = await this.pingModels(base, apiKey);
-            valid = r.ok;
-            if (!r.ok) error = r.status ? `Vendor returned ${r.status}${r.message ? `: ${r.message}` : ''}` : r.message;
+            const response = await this.vendorStatus.pingModels(base, apiKey);
+            valid = response.ok;
+            if (!response.ok) {
+              error = response.status
+                ? `Vendor returned ${response.status}${response.message ? `: ${response.message}` : ''}`
+                : response.message;
+            }
           }
         }
       }
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught);
     }
-
-    credential.is_valid = valid;
-    credential.validation_error = (error ?? null) as unknown as string;
-    credential.last_validated_at = new Date();
-    await this.credentialRepo.save(credential);
-    return this.toView(credential);
+    const validatedAt = new Date();
+    const result = await this.credentialRepo.update(
+      {
+        id: credential.id,
+        channel_resource_uid: credential.channel_resource_uid,
+        credential_type: credential.credential_type,
+        encrypted_payload: credential.encrypted_payload,
+        encryption_key_id: credential.encryption_key_id,
+        archived_at: IsNull(),
+      },
+      {
+        is_valid: valid,
+        validation_error: error ?? null,
+        last_validated_at: validatedAt,
+      },
+    );
+    if (result.affected !== 1) {
+      const current = await this.credentialRepo.findOneBy({ id, archived_at: IsNull() });
+      if (!current) throw new NotFoundException(`Credential ${id} not found`);
+      throw new ConflictException(`Credential ${id} changed while validation was running; retry`);
+    }
+    return presentCredential(await this.requireCredential(id));
   }
 
-  async providerStatus(providerId: string): Promise<ProviderStatus> {
-    const provider = await this.providerRepo.findOne({ where: { id: providerId } });
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
-    if (provider.slug === 'dreamina' || provider.auth_method === 'cli_login') return this.fetchDreaminaStatus();
-
-    const ctx = await this.resolveProviderApiContext(providerId);
-    if (!ctx) return { items: [], note: 'No available api_key credential' };
-    return this.fetchBalance(ctx.base, ctx.apiKey);
+  async providerStatus(providerResourceUid: string): Promise<ProviderStatus> {
+    const provider = this.registry.getProvider(providerResourceUid);
+    if (!provider) throw new NotFoundException(`Provider ${providerResourceUid} not found`);
+    if (provider.document.slug === 'dreamina' || provider.document.auth_method === 'cli_login') {
+      return this.vendorStatus.fetchDreaminaStatus();
+    }
+    const context = await this.resolveProviderApiContext(providerResourceUid);
+    if (!context) return { items: [], note: 'No available api_key credential' };
+    return this.vendorStatus.fetchBalance(context.base, context.apiKey);
   }
 
   async credentialBalance(id: string): Promise<ProviderStatus> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
-    if (!credential) throw new NotFoundException(`Credential ${id} not found`);
+    const credential = await this.requireCredential(id);
     try {
-      if (await this.isDreaminaCredential(credential)) return this.fetchDreaminaStatus();
+      if (this.isDreaminaCredential(credential)) return this.vendorStatus.fetchDreaminaStatus();
       const payload = await this.encryptionService.decrypt(credential.encrypted_payload);
       const apiKey = typeof payload.api_key === 'string' ? payload.api_key : undefined;
       if (!apiKey) return { items: [], note: '暂无可查询的账户状态' };
-      const base = await this.resolveBaseUrl(credential.channel_id);
+      const base = this.resolveBaseUrl(credential.channel_resource_uid);
       if (!base) return { items: [], note: '无法解析 base_url' };
-      return this.fetchBalance(base, apiKey);
-    } catch (e) {
-      return { items: [], note: (e as Error).message };
+      return this.vendorStatus.fetchBalance(base, apiKey);
+    } catch (error) {
+      return { items: [], note: (error as Error).message };
     }
   }
 
-  async resolveProviderApiContext(providerId: string): Promise<{ base: string; apiKey: string } | null> {
-    const provider = await this.providerRepo.findOne({ where: { id: providerId } });
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
-    const channels = await this.channelRepo.find({ where: { provider_id: providerId } });
-    for (const ch of channels) {
-      const creds = await this.credentialRepo.find({ where: { channel_id: ch.id, enabled: true } });
-      for (const cred of creds) {
+  async resolveProviderApiContext(
+    providerResourceUid: string,
+    allowedChannelUids?: readonly string[],
+  ): Promise<{ base: string; apiKey: string } | null> {
+    const provider = this.registry.getProvider(providerResourceUid);
+    if (!provider) throw new NotFoundException(`Provider ${providerResourceUid} not found`);
+    const allowed = allowedChannelUids ? new Set(allowedChannelUids) : null;
+    const channels = [...this.registry.getSnapshot().channelsByResourceUid.values()]
+      .filter(
+        (channel) =>
+          channel.document.provider_uid === providerResourceUid &&
+          channel.enabled &&
+          isCatalogCurrentLifecycle(channel.document.lifecycle) &&
+          (!allowed || allowed.has(channel.document.resource_uid)),
+      )
+      .sort((a, b) => a.priority - b.priority);
+    for (const channel of channels) {
+      const credentials = await this.credentialRepo.find({
+        where: {
+          channel_resource_uid: channel.document.resource_uid,
+          enabled: true,
+          archived_at: IsNull(),
+        },
+        order: { created_at: 'ASC' },
+      });
+      for (const credential of credentials) {
         try {
-          const payload = await this.encryptionService.decrypt(cred.encrypted_payload);
+          const payload = await this.encryptionService.decrypt(credential.encrypted_payload);
           const apiKey = typeof payload.api_key === 'string' ? payload.api_key : undefined;
-          const base = ch.base_url ?? provider.base_url;
+          const base = this.resolveBaseUrl(channel.document.resource_uid);
           if (apiKey && base) return { base, apiKey };
         } catch {
-          // Try next credential.
+          // Try the next enabled credential.
         }
       }
     }
     return null;
   }
 
-  private async isDreaminaCredential(credential: ModelCredential): Promise<boolean> {
-    if (credential.credential_type === 'cli_session') return true;
-    const channel = await this.channelRepo.findOne({ where: { id: credential.channel_id } });
-    if (!channel) return false;
-    const provider = await this.providerRepo.findOne({ where: { id: channel.provider_id } });
-    return provider?.slug === 'dreamina' || provider?.auth_method === 'cli_login';
-  }
-
-  private async fetchDreaminaStatus(): Promise<ProviderStatus> {
-    const credit = await this.dreamina.credit();
-    if (!credit.logged_in) {
-      return { items: [], available: false, note: credit.error ?? '即梦 CLI 未登录' };
-    }
-    const items: ProviderStatusItem[] = [
-      {
-        label: '会员',
-        value: credit.vip_level || '未开通',
-        tone: credit.vip_level ? 'success' : 'warning',
-      },
-    ];
-    if (typeof credit.total_credit === 'number') {
-      items.push({
-        label: '积分',
-        value: String(credit.total_credit),
-        tone: credit.total_credit > 0 ? 'success' : 'warning',
-      });
-    }
-    return { items, available: !!credit.vip_level && (credit.total_credit ?? 0) > 0 };
-  }
-
-  private async fetchBalance(base: string, apiKey: string): Promise<ProviderStatus> {
-    const url = `${base.replace(/\/$/, '')}/user/balance`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12_000);
-    try {
-      const res = await fetch(url, { headers: { authorization: `Bearer ${apiKey}` }, signal: ctrl.signal });
-      if (!res.ok) return { items: [], note: `不支持余额查询(${res.status})` };
-      const j = (await res.json()) as {
-        is_available?: boolean;
-        balance_infos?: { currency: string; total_balance: string }[];
-      };
-      const items: ProviderStatusItem[] = (j.balance_infos ?? []).map((b) => ({
-        label: '余额',
-        value: `${b.currency} ${b.total_balance}`,
-        tone: Number(b.total_balance) > 0 ? 'success' : 'warning',
-      }));
-      return { items, available: j.is_available };
-    } catch (e) {
-      return { items: [], note: (e as Error).message };
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  private async resolveBaseUrl(channelId: string): Promise<string | null> {
-    const channel = await this.channelRepo.findOne({ where: { id: channelId } });
-    if (!channel) return null;
-    if (channel.base_url) return channel.base_url;
-    const provider = await this.providerRepo.findOne({ where: { id: channel.provider_id } });
-    return provider?.base_url ?? null;
-  }
-
-  private async pingModels(base: string, apiKey: string): Promise<{ ok: boolean; status?: number; message?: string }> {
-    const url = `${base.replace(/\/$/, '')}/models`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12_000);
-    try {
-      const res = await fetch(url, { headers: { authorization: `Bearer ${apiKey}` }, signal: ctrl.signal });
-      if (res.ok) return { ok: true, status: res.status };
-      let message: string | undefined;
-      try {
-        const j = (await res.json()) as { error?: { message?: string }; message?: string };
-        message = j?.error?.message ?? j?.message;
-      } catch {
-        // Non-json error body.
-      }
-      return { ok: false, status: res.status, message };
-    } catch (e) {
-      return { ok: false, message: (e as Error).message };
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  /**
-   * Return provider slugs that have at least one enabled credential on an
-   * enabled channel. This is the single "configured and enabled" availability
-   * check used by model lists and feature model resolution; it intentionally
-   * does not require a validation probe or expiry check.
-   */
   async getProviderSlugsWithCredentials(): Promise<Set<string>> {
-    const rows = await this.credentialRepo.manager.query<{ slug: string }[]>(
-      `SELECT DISTINCT p.slug FROM account.providers p
-       INNER JOIN account.channels ch ON ch.provider_id = p.id AND ch.enabled = TRUE
-       INNER JOIN account.credentials c ON c.channel_id = ch.id AND c.enabled = TRUE
-       WHERE p.enabled = TRUE`,
+    const values = [...this.registry.getSnapshot().providersByResourceUid.values()].filter(
+      (provider) =>
+        provider.enabled &&
+        [...this.registry.getSnapshot().channelsByResourceUid.values()].some(
+          (channel) =>
+            channel.document.provider_uid === provider.document.resource_uid &&
+            channel.enabled &&
+            channel.enabled_credential_ids.length > 0,
+        ),
     );
-    return new Set(rows.map((r) => r.slug));
+    return new Set(values.map((provider) => provider.document.slug));
   }
 
-  /** Internal: get decrypted credential for invocation. */
-  async getDecrypted(id: string): Promise<Record<string, any>> {
-    const credential = await this.credentialRepo.findOne({ where: { id } });
+  async getDecrypted(id: string): Promise<Record<string, unknown>> {
+    const credential = await this.requireCredential(id);
+    return (await this.encryptionService.decrypt(credential.encrypted_payload)) ?? {};
+  }
+
+  private isDreaminaCredential(credential: ModelCredential): boolean {
+    if (credential.credential_type === 'cli_session') return true;
+    const channel = this.registry.getChannel(credential.channel_resource_uid);
+    const provider = channel ? this.registry.getProvider(channel.document.provider_uid) : null;
+    return provider?.document.slug === 'dreamina' || provider?.document.auth_method === 'cli_login';
+  }
+
+  private resolveBaseUrl(channelResourceUid: string): string | null {
+    const channel = this.registry.getChannel(channelResourceUid);
+    if (!channel) return null;
+    const provider = this.registry.getProvider(channel.document.provider_uid);
+    return (
+      stringValue(channel.config_overrides.base_url) ??
+      channel.document.base_url ??
+      stringValue(provider?.config_overrides.base_url) ??
+      provider?.document.base_url ??
+      null
+    );
+  }
+
+  private async requireCredential(id: string): Promise<ModelCredential> {
+    const credential = await this.credentialRepo.findOneBy({ id, archived_at: IsNull() });
     if (!credential) throw new NotFoundException(`Credential ${id} not found`);
-    const payload = await this.encryptionService.decrypt(credential.encrypted_payload);
-    return payload ?? {};
+    return credential;
   }
+}
 
-  private toView(credential: ModelCredential): CredentialView {
-    return {
-      id: credential.id,
-      channel_id: credential.channel_id,
-      label: credential.label,
-      credential_type: credential.credential_type,
-      payload_fields: credential.payload_fields,
-      enabled: credential.enabled,
-      is_valid: credential.is_valid,
-      last_validated_at: credential.last_validated_at,
-      validation_error: credential.validation_error,
-      expires_at: credential.expires_at,
-      auto_refresh: credential.auto_refresh,
-      last_used_at: credential.last_used_at,
-      total_usage_count: credential.total_usage_count,
-      source: credential.source,
-      created_by: credential.created_by,
-      created_at: credential.created_at,
-      updated_at: credential.updated_at,
-    };
-  }
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }

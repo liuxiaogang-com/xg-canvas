@@ -1,5 +1,9 @@
 import { AdapterError, type UnifiedRequest } from '@xgcanvas/adapters-contract';
-import { ERROR_CODES, type ModelInputContract, type ResolvedGenerationReference } from '@xgcanvas/shared-types';
+import {
+  ERROR_CODES,
+  type ModelInputContract,
+  type ResolvedGenerationReference,
+} from '@xgcanvas/shared-types';
 
 type UnifiedInputs = UnifiedRequest['inputs'];
 
@@ -24,13 +28,20 @@ export function validateInputContract(
   }
 
   const refs = Array.isArray(inputs.references) ? inputs.references : [];
+  const slots = [...(mode.required_slots ?? []), ...(mode.optional_slots ?? [])];
+  const declaredSlots = new Set(slots.map((slot) => slot.slot));
+  for (const ref of refs) {
+    if (!declaredSlots.has(ref?.slot)) {
+      fail(`slot "${String(ref?.slot)}" is not declared by mode "${mode.id}"`);
+    }
+  }
   for (const slot of mode.required_slots ?? []) {
     const count = countSlot(refs, slot.slot);
-    const min = slot.min ?? (slot.required === false ? 0 : 1);
+    const min = slot.min ?? 1;
     if (count < min) fail(`slot "${slot.slot}" requires at least ${min} reference(s)`);
   }
 
-  for (const slot of [...(mode.required_slots ?? []), ...(mode.optional_slots ?? [])]) {
+  for (const slot of slots) {
     const slotRefs = refs.filter((r) => r?.slot === slot.slot);
     const count = slotRefs.length;
     if (slot.max !== undefined && count > slot.max) {
@@ -49,9 +60,13 @@ function validateLibraryReference(
   ref: ResolvedGenerationReference,
   slot: NonNullable<ModelInputContract['modes'][number]['required_slots']>[number],
 ): void {
-  const library = (ref.metadata as {
-    library?: { kind?: unknown; provider_refs?: unknown[] };
-  } | undefined)?.library;
+  const library = (
+    ref.metadata as
+      | {
+          library?: { kind?: unknown; provider_refs?: unknown[] };
+        }
+      | undefined
+  )?.library;
   if (!library) return;
   if (!slot.library) fail(`slot "${slot.slot}" does not accept library entries`);
   const kind = typeof library.kind === 'string' ? library.kind : '';
@@ -62,7 +77,7 @@ function validateLibraryReference(
   if (!slot.library.forms.includes(form)) {
     fail(`slot "${slot.slot}" does not accept library form "${form}"`);
   }
-  if (form === 'provider_ref' && !(library.provider_refs?.length)) {
+  if (form === 'provider_ref' && !library.provider_refs?.length) {
     fail(`slot "${slot.slot}" has no verified provider binding`);
   }
 }

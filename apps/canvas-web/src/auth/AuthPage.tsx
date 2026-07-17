@@ -70,7 +70,7 @@ const FEATURES: { icon: JSX.Element; title: string; desc: string }[] = [
   },
   {
     title: '多模型统一编排',
-    desc: 'DeepSeek、即梦、豆包 一处接入',
+    desc: '文本、图像、视频模型一处接入',
     icon: (
       <svg
         width="17"

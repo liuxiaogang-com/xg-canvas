@@ -51,7 +51,7 @@ export type LibraryInputForm = (typeof LIBRARY_INPUT_FORMS)[number];
 
 interface GenerationReferenceBase {
   slot: GenerationReferenceSlot | string;
-  type?: GenerationReferenceType;
+  type: GenerationReferenceType;
   weight?: number;
   order?: number;
 }
@@ -158,7 +158,6 @@ export interface GenerationInput {
 export interface InputSlotContract {
   slot: GenerationReferenceSlot | string;
   type: GenerationReferenceType;
-  required?: boolean;
   min?: number;
   max?: number;
   /**

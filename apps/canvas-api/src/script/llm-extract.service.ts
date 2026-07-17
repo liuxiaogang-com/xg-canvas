@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
-import { AccountInvokeClient } from '../account-client';
+import { AccountInvokeClient, AccountModelsClient } from '../account-client';
 
 interface ExtractInput {
   workspace_id: string;
@@ -17,12 +16,13 @@ export class LlmExtractService {
 
   constructor(
     private readonly invoke: AccountInvokeClient,
-    private readonly config: ConfigService,
+    private readonly models: AccountModelsClient,
   ) {}
 
   /** Run a JSON-mode LLM call and return the parsed object. */
   async extract<T>(input: ExtractInput): Promise<T> {
-    const modelId = input.model_id ?? this.config.get<string>('SCRIPT_EXTRACT_MODEL', 'openai:gpt-4o-mini');
+    const modelId =
+      input.model_id ?? (await this.models.requireFeatureModel('script-extract', 'gen.text'));
     const res = await this.invoke.invoke({
       task_id: input.task_id,
       task_type: 'gen.text',
@@ -35,8 +35,12 @@ export class LlmExtractService {
           { role: 'user', content: input.user },
         ],
       },
+      resolution: { kind: 'current' },
     });
-    const text = (res.text ?? '').trim().replace(/^```(?:json)?/, '').replace(/```$/, '');
+    const text = (res.text ?? '')
+      .trim()
+      .replace(/^```(?:json)?/, '')
+      .replace(/```$/, '');
     try {
       return JSON.parse(text) as T;
     } catch (e) {

@@ -7,12 +7,13 @@ import { toast } from '../../ui';
 import MarkdownMessage from './MarkdownMessage';
 import './chat.css';
 
-/** 对话 page — real DeepSeek chat: streaming tokens, a collapsible thinking panel
- *  (reasoner chain-of-thought), token/time meta, and refresh-safe persistence. */
+/** Catalog-backed chat page with streaming tokens, an optional thinking panel,
+ *  token/time metadata, and refresh-safe persistence. */
 export default function ChatPage() {
   const navigate = useNavigate();
   const { conversationId: routeConvId } = useParams<{ conversationId?: string }>();
   const [models, setModels] = useState<RichModelSummary[]>([]);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [modelId, setModelId] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
@@ -60,11 +61,26 @@ export default function ChatPage() {
       .list('gen.text')
       .then((m) => {
         setModels(m);
-        if (m[0]) setModelId(m[0].id);
+        setModelId((current) => (
+          current && m.some((model) => model.model_id === current)
+            ? current
+            : m[0]?.model_id ?? ''
+        ));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setModels([]);
+        setModelId('');
+      })
+      .finally(() => setModelsLoaded(true));
     void reloadConvs();
   }, [reloadConvs]);
+
+  useEffect(() => {
+    if (!modelsLoaded || !modelId) return;
+    if (!models.some((model) => model.model_id === modelId)) {
+      setModelId(models[0]?.model_id ?? '');
+    }
+  }, [modelId, models, modelsLoaded]);
 
   useEffect(() => {
     if (!convsLoaded) return;
@@ -210,8 +226,9 @@ export default function ChatPage() {
       <main className="chat__main">
         <header className="chat__bar">
           <select className="chat__model" value={modelId} onChange={(e) => setModelId(e.target.value)}>
+            {models.length === 0 ? <option value="">暂无可用文本模型</option> : null}
             {models.map((m) => (
-              <option key={m.id} value={m.id}>
+              <option key={m.model_resource_uid} value={m.model_id}>
                 {m.display_name}
               </option>
             ))}
@@ -285,7 +302,7 @@ export default function ChatPage() {
             onKeyDown={onKey}
             rows={2}
           />
-          <button type="button" className="chat__send" onClick={send} disabled={sending || !input.trim()}>
+          <button type="button" className="chat__send" onClick={send} disabled={sending || !modelId || !input.trim()}>
             {sending ? '生成中…' : '发送'}
           </button>
         </div>

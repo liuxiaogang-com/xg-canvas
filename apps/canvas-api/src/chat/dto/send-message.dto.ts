@@ -1,4 +1,5 @@
-import { IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { MAX_MODEL_ID_LENGTH } from '@xgcanvas/shared-types';
 
 export class SendMessageDto {
   @IsUUID()
@@ -6,6 +7,7 @@ export class SendMessageDto {
   conversation_id?: string;
 
   @IsString()
+  @MaxLength(MAX_MODEL_ID_LENGTH)
   model_id!: string;
 
   @IsString()

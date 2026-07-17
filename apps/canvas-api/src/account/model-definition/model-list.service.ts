@@ -1,13 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ArrayContains } from 'typeorm';
-import { ModelDefinition } from './model-definition.entity';
-import { CredentialService } from '../credential/credential.service';
-import type { ModelInputContract } from '@xgcanvas/shared-types';
-import { parseOptionalModelInputContract } from './model-input-contract.schema';
+import { Injectable } from '@nestjs/common';
+import type { ModelInputContract, TaskType } from '@xgcanvas/shared-types';
+import { ModelAvailabilityService } from '../invoke/model-availability.service';
+import { RegistryService } from '../registry';
+import type { ModelDefinitionView } from './model-definition.service';
+import { ModelDefinitionService } from './model-definition.service';
+import {
+  estimateModelPricing,
+  formatModelPricingSummary,
+  type ModelCostEstimate,
+} from './model-pricing-presenter';
 
 export interface ModelListItem {
   model_id: string;
+  model_resource_uid: string;
+  model_revision_id: string;
+  catalog_epoch: string;
   display_name: string;
   description: string;
   provider: {
@@ -29,172 +36,95 @@ export interface ModelListItem {
 export interface ModelListFilter {
   taskType?: string;
   capabilities?: string[];
+  executionMode?: 'live' | 'demo';
 }
+
+export type ModelDetail = ModelDefinitionView & { catalog_epoch: string };
 
 @Injectable()
 export class ModelListService {
-  private readonly logger = new Logger(ModelListService.name);
-
   constructor(
-    @InjectRepository(ModelDefinition)
-    private readonly modelRepo: Repository<ModelDefinition>,
-    private readonly credentials: CredentialService,
+    private readonly registry: RegistryService,
+    private readonly availability: ModelAvailabilityService,
+    private readonly definitions: ModelDefinitionService,
   ) {}
 
-  /**
-   * 获取可用模型列表（按任务类型和能力筛选）
-   * Only includes models whose provider has at least one enabled credential.
-   */
   async getAvailableModels(filter: ModelListFilter): Promise<ModelListItem[]> {
-    const qb = this.modelRepo
-      .createQueryBuilder('m')
-      .leftJoinAndSelect('m.provider', 'p')
-      .where('m.enabled = :enabled', { enabled: true })
-      .andWhere('p.enabled = :providerEnabled', { providerEnabled: true })
-      .orderBy('p.sort_order', 'ASC')
-      .addOrderBy('m.sort_order', 'ASC')
-      .addOrderBy('m.display_name', 'ASC');
-
-    // 按任务类型筛选
-    if (filter.taskType) {
-      qb.andWhere(':taskType = ANY(m.task_types)', { taskType: filter.taskType });
-    }
-
-    // 按能力筛选（要求全部包含）
-    if (filter.capabilities?.length) {
-      for (let i = 0; i < filter.capabilities.length; i++) {
-        qb.andWhere(`:cap${i} = ANY(m.capabilities)`, { [`cap${i}`]: filter.capabilities[i] });
-      }
-    }
-
-    const models = await qb.getMany();
-
-    // Only include models whose provider has at least one enabled credential.
-    const activeProviders = await this.credentials.getProviderSlugsWithCredentials();
-
-    return models.flatMap((m) => {
-      if (!m.provider || !activeProviders.has(m.provider.slug)) return [];
-      const inputContract = parseOptionalModelInputContract(m.input_contract);
-      if (!inputContract.success) {
-        this.logger.warn(
-          `model ${m.model_id} hidden because input_contract is invalid: ${inputContract.message}`,
-        );
-        return [];
-      }
+    const snapshot = this.registry.getSnapshot();
+    const entries = [...snapshot.byId.values()].filter(
+      (entry) =>
+        entry.manifest.enabled &&
+        entry.manifest.visibility === 'public' &&
+        (!filter.taskType || entry.manifest.task_types.includes(filter.taskType as TaskType)) &&
+        (!filter.capabilities?.length ||
+          filter.capabilities.every((capability) =>
+            entry.manifest.capabilities.includes(capability as never),
+          )),
+    );
+    const available = await this.availability.availableIds(
+      entries.map((entry) => entry.manifest.id),
+      filter.taskType as TaskType | undefined,
+      filter.executionMode ?? 'live',
+      snapshot,
+    );
+    return entries.flatMap((entry) => {
+      if (!available.has(entry.manifest.id)) return [];
+      const provider = snapshot.providersByResourceUid.get(entry.provider_resource_uid);
+      if (!provider) return [];
+      const rate = entry.pin.rate_card_revision_id
+        ? snapshot.rateCardsByRevisionId.get(entry.pin.rate_card_revision_id)
+        : null;
       return [
         {
-          model_id: m.model_id,
-          display_name: m.display_name,
-          description: m.description || '',
+          model_id: entry.manifest.id,
+          model_resource_uid: entry.pin.model_resource_uid,
+          model_revision_id: entry.pin.model_revision_id,
+          catalog_epoch: entry.pin.catalog_epoch,
+          display_name: entry.manifest.display_name,
+          description: entry.document.description ?? '',
           provider: {
-            slug: m.provider.slug,
-            display_name: m.provider.display_name,
-            icon_url: m.provider.icon_url || '',
+            slug: provider.document.slug,
+            display_name: provider.document.display_name,
+            icon_url: provider.document.icon_url ?? '',
           },
-          task_types: m.task_types,
-          capabilities: m.capabilities,
-          invocation_mode: m.invocation_mode,
-          supports_streaming: m.supports_streaming,
-          tags: m.tags,
-          deprecated: m.deprecated,
-          deprecated_message: m.deprecated_message || undefined,
-          input_contract: inputContract.data,
-          pricing_summary: this.formatPricingSummary(m.pricing),
+          task_types: [...entry.manifest.task_types],
+          capabilities: [...entry.manifest.capabilities],
+          invocation_mode: entry.manifest.invocation_mode,
+          supports_streaming: entry.document.supports_streaming,
+          tags: [...entry.document.tags],
+          deprecated: entry.document.lifecycle === 'deprecated',
+          deprecated_message: entry.document.deprecated_message,
+          input_contract: entry.manifest.input_contract,
+          pricing_summary: rate ? formatModelPricingSummary(rate.pricing) : undefined,
         },
       ];
     });
   }
 
-  /**
-   * 获取模型详情（含 Schema 和约束）
-   */
-  async getModelDetail(modelId: string): Promise<ModelDefinition | null> {
-    const model = await this.modelRepo.findOne({
-      where: { model_id: modelId, enabled: true },
-      relations: ['provider'],
-    });
-    if (!model?.provider?.enabled) return null;
-    const activeProviders = await this.credentials.getProviderSlugsWithCredentials();
-    if (!activeProviders.has(model.provider.slug)) return null;
-    const inputContract = parseOptionalModelInputContract(model.input_contract);
-    if (!inputContract.success) {
-      this.logger.warn(
-        `model ${model.model_id} hidden because input_contract is invalid: ${inputContract.message}`,
-      );
+  async getModelDetail(
+    modelId: string,
+    executionMode: 'live' | 'demo' = 'live',
+  ): Promise<ModelDetail | null> {
+    const snapshot = this.registry.getSnapshot();
+    const entry = this.registry.getEntry(modelId, snapshot);
+    if (
+      !entry ||
+      !entry.manifest.enabled ||
+      entry.manifest.visibility !== 'public' ||
+      !(await this.availability.isCurrentAvailable(modelId, undefined, executionMode, snapshot))
+    )
       return null;
-    }
-    model.input_contract = inputContract.data ?? { modes: [] };
-    return model;
+    return {
+      ...(await this.definitions.findOne(entry.pin.model_resource_uid)),
+      catalog_epoch: entry.pin.catalog_epoch,
+    };
   }
 
-  /**
-   * 估算费用
-   */
   estimateCost(
-    model: ModelDefinition,
-    params: Record<string, any>,
+    model: ModelDefinitionView,
+    params: Record<string, unknown>,
     inputTextLength?: number,
-  ): { estimated_credits: number; breakdown: string } {
-    const pricing = model.pricing;
-    if (!pricing || !pricing.unit) {
-      return { estimated_credits: 0, breakdown: '该模型暂无定价信息' };
-    }
-
-    switch (pricing.unit) {
-      case 'token': {
-        const estimatedInputTokens = inputTextLength ? Math.ceil(inputTextLength / 3) : 1000;
-        const estimatedOutputTokens = params.max_tokens || 1000;
-        const inputCost = (estimatedInputTokens / 1000) * (pricing.input_price_per_1k || 0);
-        const outputCost = (estimatedOutputTokens / 1000) * (pricing.output_price_per_1k || 0);
-        const total = inputCost + outputCost;
-        return {
-          estimated_credits: Math.ceil(total * 100) / 100,
-          breakdown: `预计 ~${estimatedInputTokens} 输入 + ~${estimatedOutputTokens} 输出 tokens`,
-        };
-      }
-
-      case 'image': {
-        const price =
-          pricing.hd_price && params.quality === 'hd'
-            ? pricing.hd_price
-            : pricing.standard_price || pricing.price_per_image || 0;
-        return {
-          estimated_credits: price,
-          breakdown: `单张图片生成`,
-        };
-      }
-
-      case 'second': {
-        const duration = params.duration || 5;
-        const cost = duration * (pricing.price_per_second || 0);
-        return {
-          estimated_credits: Math.ceil(cost * 100) / 100,
-          breakdown: `${duration} 秒视频生成`,
-        };
-      }
-
-      default:
-        return { estimated_credits: 0, breakdown: '暂无定价信息' };
-    }
-  }
-
-  /**
-   * 格式化定价摘要（用于列表展示）
-   */
-  private formatPricingSummary(pricing: Record<string, any>): string {
-    if (!pricing?.unit) return '';
-
-    const currency = pricing.currency === 'CNY' ? '¥' : '$';
-
-    switch (pricing.unit) {
-      case 'token':
-        return `${currency}${pricing.input_price_per_1k || '?'}/1K tokens`;
-      case 'image':
-        return `${currency}${pricing.standard_price || pricing.price_per_image || '?'}/张`;
-      case 'second':
-        return `${currency}${pricing.price_per_second || '?'}/秒`;
-      default:
-        return '';
-    }
+  ): ModelCostEstimate {
+    return estimateModelPricing(model.pricing ?? {}, params, inputTextLength);
   }
 }

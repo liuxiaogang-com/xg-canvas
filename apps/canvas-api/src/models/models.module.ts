@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 
-import { CredentialModule } from '../account/credential/credential.module';
+import { AccountClientModule } from '../account-client';
 import { ModelsController } from './models.controller';
-import { DemoModelRegistry } from './demo-model-registry';
 
 @Module({
-  imports: [CredentialModule],
+  imports: [AccountClientModule],
   controllers: [ModelsController],
-  providers: [DemoModelRegistry],
 })
 export class ModelsModule {}

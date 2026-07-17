@@ -11,9 +11,9 @@ describe('validatePublicTaskInputs', () => {
       validatePublicTaskInputs({
         references: [
           { slot: 'source_image', type: 'image', asset_id: ASSET_ID },
+          { slot: 'driving_audio', type: 'audio', asset_id: ASSET_ID },
           { slot: 'voice', type: 'library_ref', library_entry_id: LIBRARY_ID },
         ],
-        audio_url: ASSET_ID,
       }),
     ).not.toThrow();
   });
@@ -27,7 +27,8 @@ describe('validatePublicTaskInputs', () => {
     },
   );
 
-  it('rejects a remote audio_url', () => {
+  it('rejects the removed audio_url compatibility field', () => {
+    expectValidationFailure({ audio_url: ASSET_ID });
     expectValidationFailure({ audio_url: 'http://169.254.169.254/latest/meta-data' });
   });
 
@@ -48,6 +49,9 @@ describe('validatePublicTaskInputs', () => {
     });
     expectValidationFailure({
       references: [{ slot: 'source_image', type: 'future_url', asset_id: ASSET_ID }],
+    });
+    expectValidationFailure({
+      references: [{ slot: 'source_image', asset_id: ASSET_ID }],
     });
   });
 

@@ -55,6 +55,7 @@ export class BailianDashscopeClient {
       headers: authHeaders(cred),
       timeoutMs: 30_000,
       signal,
+      retry: 'safe',
     });
     return res.data;
   }
@@ -70,6 +71,7 @@ export class BailianDashscopeClient {
       headers: authHeaders(cred),
       timeoutMs: 30_000,
       signal,
+      retry: 'safe',
     });
   }
 }

@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { redactSecretText } from '@xgcanvas/model-catalog';
 import { Repository } from 'typeorm';
 
 import { AccountInvokeClient } from '../account-client';
@@ -10,7 +11,13 @@ import type { SendMessageDto } from './dto/send-message.dto';
 export type ChatStreamEvent =
   | { type: 'meta'; conversation_id: string }
   | { type: 'delta'; text?: string; reasoning?: string }
-  | { type: 'done'; message_id: string; usage: Record<string, unknown> | null; latency_ms: number; request_id?: string }
+  | {
+      type: 'done';
+      message_id: string;
+      usage: Record<string, unknown> | null;
+      latency_ms: number;
+      request_id?: string;
+    }
   | { type: 'error'; message: string; request_id?: string };
 
 /**
@@ -26,7 +33,11 @@ export class ChatService {
   ) {}
 
   listConversations(ownerId: string): Promise<Conversation[]> {
-    return this.convs.find({ where: { owner_id: ownerId }, order: { updated_at: 'DESC' }, take: 100 });
+    return this.convs.find({
+      where: { owner_id: ownerId },
+      order: { updated_at: 'DESC' },
+      take: 100,
+    });
   }
 
   async getConversation(id: string, ownerId: string): Promise<Conversation> {
@@ -38,7 +49,10 @@ export class ChatService {
 
   async getMessages(conversationId: string, ownerId: string): Promise<Message[]> {
     await this.getConversation(conversationId, ownerId);
-    return this.msgs.find({ where: { conversation_id: conversationId }, order: { created_at: 'ASC' } });
+    return this.msgs.find({
+      where: { conversation_id: conversationId },
+      order: { created_at: 'ASC' },
+    });
   }
 
   async deleteConversation(id: string, ownerId: string): Promise<void> {
@@ -54,7 +68,9 @@ export class ChatService {
   ): Promise<{ conversation_id: string; message: Message }> {
     const conv = await this.resolveConversation(ownerId, workspaceId, dto);
 
-    await this.msgs.save(this.msgs.create({ conversation_id: conv.id, role: 'user', content: dto.message }));
+    await this.msgs.save(
+      this.msgs.create({ conversation_id: conv.id, role: 'user', content: dto.message }),
+    );
     const messages = this.buildMessages(conv, await this.loadHistory(conv.id));
 
     const startedAt = Date.now();
@@ -66,8 +82,13 @@ export class ChatService {
         model_id: conv.model_id ?? dto.model_id,
         workspace_id: workspaceId,
         owner_id: ownerId,
-        params: { prompt: dto.message, temperature: dto.temperature ?? 0.7, max_tokens: dto.max_tokens ?? 2000 },
+        params: {
+          prompt: dto.message,
+          temperature: dto.temperature ?? 0.7,
+          max_tokens: dto.max_tokens ?? 2000,
+        },
         inputs: { messages },
+        resolution: { kind: 'current' },
       });
       assistant = this.msgs.create({
         conversation_id: conv.id,
@@ -81,7 +102,7 @@ export class ChatService {
       assistant = this.msgs.create({
         conversation_id: conv.id,
         role: 'assistant',
-        content: `[生成失败] ${err.message ?? '未知错误'}`,
+        content: `[生成失败] ${redactSecretText(err.message ?? '未知错误')}`,
         request_id: err.request_id ?? null,
         latency_ms: Date.now() - startedAt,
       });
@@ -104,7 +125,9 @@ export class ChatService {
     signal?: AbortSignal,
   ): AsyncGenerator<ChatStreamEvent> {
     const conv = await this.resolveConversation(ownerId, workspaceId, dto);
-    await this.msgs.save(this.msgs.create({ conversation_id: conv.id, role: 'user', content: dto.message }));
+    await this.msgs.save(
+      this.msgs.create({ conversation_id: conv.id, role: 'user', content: dto.message }),
+    );
     const messages = this.buildMessages(conv, await this.loadHistory(conv.id));
     yield { type: 'meta', conversation_id: conv.id };
 
@@ -122,8 +145,13 @@ export class ChatService {
         model_id: conv.model_id ?? dto.model_id,
         workspace_id: workspaceId,
         owner_id: ownerId,
-        params: { prompt: dto.message, temperature: dto.temperature ?? 0.7, max_tokens: dto.max_tokens ?? 2000 },
+        params: {
+          prompt: dto.message,
+          temperature: dto.temperature ?? 0.7,
+          max_tokens: dto.max_tokens ?? 2000,
+        },
         inputs: { messages },
+        resolution: { kind: 'current' },
       },
       signal,
     )) {
@@ -167,17 +195,24 @@ export class ChatService {
   }
 
   /** History = content only (never resend reasoning_content to the model). */
-  private buildMessages(conv: Conversation, history: Message[]): { role: string; content: string }[] {
+  private buildMessages(
+    conv: Conversation,
+    history: Message[],
+  ): { role: string; content: string }[] {
     const messages: { role: string; content: string }[] = [];
     if (conv.system_prompt) messages.push({ role: 'system', content: conv.system_prompt });
     for (const m of history) {
-      if (m.role === 'user' || m.role === 'assistant') messages.push({ role: m.role, content: m.content });
+      if (m.role === 'user' || m.role === 'assistant')
+        messages.push({ role: m.role, content: m.content });
     }
     return messages;
   }
 
   private loadHistory(conversationId: string): Promise<Message[]> {
-    return this.msgs.find({ where: { conversation_id: conversationId }, order: { created_at: 'ASC' } });
+    return this.msgs.find({
+      where: { conversation_id: conversationId },
+      order: { created_at: 'ASC' },
+    });
   }
 
   private async resolveConversation(

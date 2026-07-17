@@ -1,28 +1,46 @@
 import { useState } from 'react';
 
-import { Modal, toast } from '../../ui';
+import { Modal, Select, toast } from '../../ui';
 import { Badge, Loading } from '../components/kit';
 import { providerApi } from '../api';
-import type { VendorModel } from '../types';
+import type { Channel, VendorModel } from '../types';
 
-/** "拉取模型" — fetch the provider's live /models list and enable selected ones as
- *  manual model definitions. Self-contained: a button that opens its own modal. */
-export function VendorModelImport({ providerId, onImported }: { providerId: string; onImported?: () => void }) {
+/** Fetch a provider's live /models list and create selected Local Catalog Resources. */
+export function VendorModelImport({
+  providerResourceUid,
+  channels,
+  onImported,
+}: {
+  providerResourceUid: string;
+  channels: Channel[];
+  onImported?: () => void;
+}) {
+  const compatibleChannels = channels.filter((channel) =>
+    channel.adapter_keys.includes('openai-compat'),
+  );
   const [open, setOpen] = useState(false);
+  const [channelResourceUid, setChannelResourceUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<VendorModel[] | null>(null);
   const [note, setNote] = useState<string | undefined>();
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [contractConfirmed, setContractConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const openModal = async () => {
+  const loadModels = async (nextChannelResourceUid: string) => {
     setOpen(true);
+    setChannelResourceUid(nextChannelResourceUid);
     setLoading(true);
     setModels(null);
     setNote(undefined);
     setPicked(new Set());
+    setContractConfirmed(false);
     try {
-      const r = await providerApi.vendorModels(providerId);
+      const r = await providerApi.vendorModels(
+        providerResourceUid,
+        nextChannelResourceUid,
+        'openai-text-chat-stream',
+      );
       setModels(r.models);
       setNote(r.note);
     } catch (e) {
@@ -31,6 +49,12 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
     } finally {
       setLoading(false);
     }
+  };
+
+  const openModal = () => {
+    const initial = compatibleChannels[0]?.resource_uid;
+    if (!initial) return;
+    void loadModels(initial);
   };
 
   const toggle = (id: string) =>
@@ -49,7 +73,16 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
     }
     setBusy(true);
     try {
-      const r = await providerApi.importModels(providerId, ids);
+      if (!contractConfirmed) {
+        toast.warning('请先确认所选模型的调用契约');
+        return;
+      }
+      const r = await providerApi.importModels(
+        providerResourceUid,
+        channelResourceUid,
+        ids,
+        'openai-text-chat-stream',
+      );
       toast.success(`已启用 ${r.created.length} 个模型${r.skipped.length ? `，跳过 ${r.skipped.length} 个` : ''}`);
       setOpen(false);
       onImported?.();
@@ -62,7 +95,13 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
 
   return (
     <>
-      <button type="button" className="btn btn--secondary btn--sm" onClick={openModal}>
+      <button
+        type="button"
+        className="btn btn--secondary btn--sm"
+        onClick={openModal}
+        disabled={compatibleChannels.length === 0}
+        title={compatibleChannels.length === 0 ? '没有 OpenAI-compatible 渠道' : undefined}
+      >
         拉取模型
       </button>
       <Modal
@@ -75,12 +114,28 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
             <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
               取消
             </button>
-            <button type="button" className="btn btn--primary" disabled={busy || picked.size === 0} onClick={doImport}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={busy || picked.size === 0 || !contractConfirmed}
+              onClick={doImport}
+            >
               {busy ? '处理中…' : `启用所选 (${picked.size})`}
             </button>
           </>
         }
       >
+        <div style={{ marginBottom: 12 }}>
+          <div className="field__hint">模型会绑定到所选的明确渠道</div>
+          <Select
+            value={channelResourceUid}
+            options={compatibleChannels.map((channel) => ({
+              value: channel.resource_uid,
+              label: `${channel.display_name} (${channel.slug})`,
+            }))}
+            onChange={(value) => void loadModels(value)}
+          />
+        </div>
         {loading ? (
           <Loading label="拉取中…" />
         ) : note ? (
@@ -88,7 +143,19 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
         ) : !models || models.length === 0 ? (
           <div className="set-stat__sub">厂商未返回模型</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 380, overflow: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label className="field__hint" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                checked={contractConfirmed}
+                onChange={(event) => setContractConfirmed(event.target.checked)}
+              />
+              <span>
+                我确认所选 ID 是兼容 OpenAI Chat Completions 的流式文本模型。厂商
+                <code>/models</code> 只返回 ID，无法自动判断图片、音频、Embedding 或流式能力。
+              </span>
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 330, overflow: 'auto' }}>
             {models.map((m) => (
               <label
                 key={m.id}
@@ -113,6 +180,7 @@ export function VendorModelImport({ providerId, onImported }: { providerId: stri
                 {m.imported ? <Badge tone="success">已启用</Badge> : null}
               </label>
             ))}
+            </div>
           </div>
         )}
       </Modal>

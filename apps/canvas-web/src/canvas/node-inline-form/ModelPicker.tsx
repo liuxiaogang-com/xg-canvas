@@ -19,7 +19,7 @@ const Caret = (
 export default function ModelPicker({ models, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = models.find((model) => model.id === value);
+  const selected = models.find((model) => model.model_id === value);
 
   useEffect(() => {
     if (!open) return;
@@ -53,16 +53,20 @@ export default function ModelPicker({ models, value, onChange }: Props) {
 
       {open ? (
         <div className="nif-model__menu" role="listbox" onPointerDown={(e) => e.stopPropagation()}>
-          {models.length === 0 ? <div className="nif-model__empty">暂无可用生成类型</div> : null}
+          {models.length === 0 ? (
+            <div className="nif-model__empty">
+              暂无可用生成类型 · <a href="/settings/credentials?add=1">配置供应商凭证</a>
+            </div>
+          ) : null}
           {models.map((model) => (
             <button
-              key={model.id}
+              key={model.model_resource_uid}
               type="button"
               role="option"
-              aria-selected={model.id === value}
-              className={`nif-model__option${model.id === value ? ' nif-model__option--selected' : ''}`}
+              aria-selected={model.model_id === value}
+              className={`nif-model__option${model.model_id === value ? ' nif-model__option--selected' : ''}`}
               onClick={() => {
-                onChange(model.id);
+                onChange(model.model_id);
                 setOpen(false);
               }}
             >

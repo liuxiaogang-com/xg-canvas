@@ -1,12 +1,11 @@
-/* 凭证 — aggregate all credentials across providers > channels > credentials.
- * There is no list-all endpoint, so we fan out: providerApi.list() ->
- * channelApi.listByProvider() -> credentialApi.listByChannel(), flatten rows. */
+/* Credential management uses one credential-scoped Catalog projection.
+ * It does not depend on model-admin APIs and never hides authorization errors. */
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SettingsPage, DataTable, BoolBadge, Badge, Loading, ErrorNote } from '../components/kit';
 import type { Column } from '../components/kit';
 import { toast } from '../../ui';
-import { providerApi, channelApi, credentialApi } from '../api';
+import { credentialApi } from '../api';
 import type { CredentialView, ProviderStatusView } from '../types';
 import { AddCredentialWizard } from './AddCredentialWizard';
 import type { Modality } from './wizard/modality';
@@ -48,41 +47,32 @@ const CredentialList: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const providers = await providerApi.list();
-      // fan out per provider -> channels, then per channel -> credentials
-      const perProvider = await Promise.all(
-        providers.map(async (p) => {
-          let channels;
-          try {
-            channels = await channelApi.listByProvider(p.id);
-          } catch {
-            return [] as CredRow[];
-          }
-          const perChannel = await Promise.all(
-            channels.map(async (ch) => {
-              try {
-                const creds = await credentialApi.listByChannel(ch.id);
-                return creds.map<CredRow>((c) => ({
-                  credential: c,
-                  providerName: p.display_name,
-                  channelName: ch.display_name,
-                }));
-              } catch {
-                return [] as CredRow[];
-              }
-            }),
-          );
-          return perChannel.flat();
-        }),
-      );
-      const flat = perProvider.flat();
+      const catalog = await credentialApi.catalog();
+      const channelByUid = new Map(catalog.channels.map((channel) => [channel.resource_uid, channel]));
+      const providerByUid = new Map(catalog.providers.map((provider) => [provider.resource_uid, provider]));
+      const flat = catalog.credentials.map<CredRow>((credential) => {
+        const channel = channelByUid.get(credential.channel_resource_uid);
+        const provider = channel ? providerByUid.get(channel.provider_resource_uid) : undefined;
+        return {
+          credential,
+          providerName: provider?.display_name ?? '未知供应商',
+          channelName: channel?.display_name ?? credential.channel_resource_uid,
+        };
+      });
       setRows(flat);
+      setBalances({});
       // Lazily fetch each credential's balance (best-effort — a balance belongs to a key).
       flat.forEach((r) =>
         credentialApi
           .balance(r.credential.id)
           .then((b) => setBalances((prev) => ({ ...prev, [r.credential.id]: b })))
-          .catch(() => undefined),
+          .catch((reason: unknown) => setBalances((prev) => ({
+            ...prev,
+            [r.credential.id]: {
+              items: [],
+              note: errMessage(reason),
+            },
+          }))),
       );
     } catch (e: unknown) {
       setError(errMessage(e));

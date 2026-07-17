@@ -30,12 +30,4 @@ export const gridSchema: NodeSchema<GridData> = {
     const filled = data.cells.filter((c) => c.asset_id).length;
     return `这是一个 ${data.rows}×${data.cols} 宫格，已填 ${filled} 格。`;
   },
-  buildTaskBody() {
-    return {
-      task_type: 'gen.image',
-      model_id: 'doubao:seedream-image',
-      params: {},
-      inputs: {},
-    };
-  },
 };

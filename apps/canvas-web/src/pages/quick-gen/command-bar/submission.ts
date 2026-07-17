@@ -1,4 +1,4 @@
-import type { ModelInputContract } from '@xgcanvas/shared-types';
+import type { ModelInputContract, TaskType } from '@xgcanvas/shared-types';
 
 import {
   ensureInputMode,
@@ -17,7 +17,7 @@ import type { CommandBarState } from '../types';
 import { TASK_TYPE_BY_MODE } from '../types';
 
 export interface QuickGenSubmission {
-  task_type: string;
+  task_type: TaskType;
   model_id: string;
   params: Record<string, unknown>;
   inputs: Record<string, unknown>;

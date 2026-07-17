@@ -1,0 +1,76 @@
+version: "1.0"
+provider_slug: bailian
+models:
+  - resource_uid: d6912ce2-a142-4354-b5ef-387b7d7f9f23
+    revision: 1
+    model_id: bailian:qwen-image-2.0-pro
+    provider_model_id: qwen-image-2.0-pro
+    display_name: 千问图像 2.0 Pro
+    description: 千问图像 Pro，擅长文字渲染、真实质感和语义遵循，支持同步生图。
+    task_types:
+      - gen.image
+    capabilities:
+      - image_gen
+      - image_ref
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs:
+      - bailian-dashscope-native
+    tags:
+      - 推荐
+      - 图像
+      - 文字渲染
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+        - id: image_to_image
+          label: 图生图
+          required_slots:
+            - slot: source_image
+              type: image
+              min: 1
+              max: 9
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt, negative_prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [size, n], ui_zone: params }
+        - { id: advanced, label: 高级, fields: [prompt_extend, watermark, seed], ui_zone: advanced }
+      properties:
+        prompt: { type: text, label: 提示词, max_length: 1300 }
+        negative_prompt: { type: text, label: 反向提示词, max_length: 500 }
+        size:
+          type: enum
+          label: 尺寸
+          enum_options:
+            - { value: "2048*2048", label: "2048*2048" }
+            - { value: "2688*1536", label: "2688*1536" }
+            - { value: "1536*2688", label: "1536*2688" }
+            - { value: "2368*1728", label: "2368*1728" }
+            - { value: "1728*2368", label: "1728*2368" }
+        n: { type: integer, label: 张数, min: 1, max: 6, step: 1 }
+        prompt_extend: { type: boolean, label: 智能改写提示词 }
+        watermark: { type: boolean, label: 添加水印 }
+        seed: { type: integer, label: 随机种子, min: 0, max: 2147483647 }
+      required: [prompt]
+      defaults: { size: "2048*2048", n: 1, prompt_extend: true, watermark: false }
+    limits:
+      max_images_per_request: 6
+      max_prompt_tokens: 1300
+      max_negative_prompt_chars: 500
+    pricing:
+      resource_uid: 20c19499-8b7e-4ff0-b3dd-dc6eef27b2cc
+      revision: 1
+      currency: CNY
+      components:
+        - meter: image_count
+          per: 1
+          price: 0.05

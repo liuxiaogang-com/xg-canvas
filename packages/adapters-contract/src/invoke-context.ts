@@ -22,7 +22,7 @@ export interface InvokeCtx {
 }
 
 export interface ChannelInfo {
-  id: string;
+  resource_uid: string;
   /** e.g. "official", "openrouter", "self-hosted". */
   key: string;
   /** Vendor base URL override; empty string means "adapter default". */
@@ -37,8 +37,8 @@ export interface ChannelInfo {
  */
 export interface DecryptedCredential {
   id: string;
-  channel_id: string;
-  type: 'api_key' | 'oauth' | 'cli_session';
+  channel_resource_uid: string;
+  type: 'api_key' | 'cli_session';
   /** The actual secret material; varies by type. */
   payload: Record<string, unknown>;
 }

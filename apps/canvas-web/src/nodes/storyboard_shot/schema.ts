@@ -1,5 +1,6 @@
 import type { NodeSchema } from '../types';
 import { mapImageReferences, mapVideoReferences } from '../_shared/generation-input';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 export interface StoryboardShotData {
   shot_no: number;
@@ -35,6 +36,12 @@ export const storyboardShotSchema: NodeSchema<StoryboardShotData> = {
     target: 'image',
     model_id: null,
   },
+  form: {
+    taskType: (data) => data.target === 'video' ? 'gen.video' : 'gen.image',
+    prompt: { field: 'prompt', placeholder: '描述这一镜的画面、动作与运镜', mention: true },
+    cost: true,
+    submit: { label: '生成' },
+  },
   pillActions: [
     { id: 'generate_image', label: '生成图', icon: '🖼' },
     { id: 'generate_video', label: '生成视频', icon: '🎬' },
@@ -49,7 +56,7 @@ export const storyboardShotSchema: NodeSchema<StoryboardShotData> = {
       const mode = upstream.references?.length ? 'image_to_video' : 'text_to_video';
       return {
         task_type: 'gen.video',
-        model_id: data.model_id ?? 'doubao:jimeng-video',
+        model_id: requireSelectedModel(data.model_id),
         params: { duration_sec: data.duration_sec, aspect_ratio: '16:9' },
         inputs: {
           mode,
@@ -61,7 +68,7 @@ export const storyboardShotSchema: NodeSchema<StoryboardShotData> = {
     const mode = upstream.references?.length ? 'image_to_image' : 'text_to_image';
     return {
       task_type: 'gen.image',
-      model_id: data.model_id ?? 'doubao:seedream-image',
+      model_id: requireSelectedModel(data.model_id),
       params: { aspect_ratio: '16:9', resolution: '1k' },
       inputs: {
         mode,

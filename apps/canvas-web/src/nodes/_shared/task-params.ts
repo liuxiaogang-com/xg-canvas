@@ -23,9 +23,9 @@ const EXCLUDED_NODE_DATA_KEYS = new Set([
 
 export function collectNodeParams(
   data: Record<string, unknown>,
-  legacy: Record<string, unknown> = {},
+  explicit: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  const params: Record<string, unknown> = { ...legacy };
+  const params: Record<string, unknown> = { ...explicit };
   for (const [key, value] of Object.entries(data)) {
     if (EXCLUDED_NODE_DATA_KEYS.has(key)) continue;
     if (value === undefined || value === null || value === '') continue;

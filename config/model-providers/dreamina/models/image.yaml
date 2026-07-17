@@ -1,0 +1,112 @@
+version: "1.0"
+provider_slug: dreamina
+models:
+  - resource_uid: 384c0119-4cba-4ef7-9979-961061e5facf
+    revision: 1
+    model_id: dreamina:text2image
+    provider_model_id: text2image
+    display_name: 即梦文生图
+    description: 文本生成图片，支持 3.0-5.0 多代模型，1-10 张批量
+    task_types:
+      - gen.image
+    capabilities:
+      - image_gen
+    invocation_mode: async
+    adapter_key: dreamina-cli
+    allowed_channel_slugs:
+      - dreamina-cli
+    tags:
+      - 图片
+      - 文生图
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [ratio, model_version], ui_zone: params }
+      properties:
+        prompt: { type: text, label: 提示词 }
+        ratio:
+          type: enum
+          label: 比例
+          enum_options: &dreamina_image_ratios
+            - { value: "21:9", label: "21:9" }
+            - { value: "16:9", label: "16:9" }
+            - { value: "3:2", label: "3:2" }
+            - { value: "4:3", label: "4:3" }
+            - { value: "1:1", label: "1:1" }
+            - { value: "3:4", label: "3:4" }
+            - { value: "2:3", label: "2:3" }
+            - { value: "9:16", label: "9:16" }
+        model_version:
+          type: enum
+          label: 模型版本
+          enum_options:
+            - { value: "3.0", label: Seedream 3.0 }
+            - { value: "3.1", label: Seedream 3.1 }
+            - { value: "4.0", label: Seedream 4.0 }
+            - { value: "4.1", label: Seedream 4.1 }
+            - { value: "4.5", label: Seedream 4.5 }
+            - { value: "4.6", label: Seedream 4.6 }
+            - { value: "4.7", label: Seedream 4.7 }
+            - { value: "5.0", label: Seedream 5.0 }
+      required: [prompt]
+      defaults: { ratio: "1:1", model_version: "5.0" }
+  - resource_uid: 15031215-e084-44b4-8eb5-395cf017f29d
+    revision: 1
+    model_id: dreamina:image2image
+    provider_model_id: image2image
+    display_name: 即梦图生图
+    description: 参考图片编辑，支持 4.0-5.0 模型，1-10 张输入
+    task_types:
+      - gen.image
+    capabilities:
+      - image_gen
+      - image_ref
+    invocation_mode: async
+    adapter_key: dreamina-cli
+    allowed_channel_slugs:
+      - dreamina-cli
+    tags:
+      - 图片
+      - 图生图
+    input_contract:
+      default_mode: image_to_image
+      modes:
+        - id: image_to_image
+          label: 图生图
+          required_slots:
+            - slot: source_image
+              type: image
+              min: 1
+              max: 10
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [ratio, model_version], ui_zone: params }
+      properties:
+        prompt: { type: text, label: 提示词 }
+        ratio: { type: enum, label: 比例, enum_options: *dreamina_image_ratios }
+        model_version:
+          type: enum
+          label: 模型版本
+          enum_options:
+            - { value: "4.0", label: Seedream 4.0 }
+            - { value: "4.1", label: Seedream 4.1 }
+            - { value: "4.5", label: Seedream 4.5 }
+            - { value: "4.6", label: Seedream 4.6 }
+            - { value: "4.7", label: Seedream 4.7 }
+            - { value: "5.0", label: Seedream 5.0 }
+      required: [prompt]
+      defaults: { ratio: "1:1", model_version: "5.0" }

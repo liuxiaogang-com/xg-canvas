@@ -1,6 +1,6 @@
 import { toast } from '../../../ui';
 import type { ModelInputContract, PromptDocument } from '@xgcanvas/shared-types';
-import type { ParamSpec } from '../../../api/model';
+import type { ParamSpec, RichModelSummary } from '../../../api/model';
 import {
   ensureInputMode,
   modeContract,
@@ -25,8 +25,9 @@ interface Props {
   state: CommandBarState;
   specs: ParamSpec[];
   inputContract?: ModelInputContract;
+  schemaReady: boolean;
   onModeChange(mode: GenMode): void;
-  onModelChange(id: string | null): void;
+  onModelChange(model: RichModelSummary | null): void;
   onInputModeChange(mode: string): void;
   onPromptChange(prompt: string, promptDoc?: PromptDocument): void;
   onParamChange(k: string, v: unknown): void;
@@ -40,6 +41,7 @@ export default function CommandBar(props: Props) {
     state,
     specs,
     inputContract,
+    schemaReady,
     onModeChange,
     onModelChange,
     onInputModeChange,
@@ -57,9 +59,13 @@ export default function CommandBar(props: Props) {
   const promptDoc = state.promptDoc ?? buildPromptDocument(state.prompt, []);
   const { modelVersionSpec, paramSpecs } = splitModelVersionParam(specs);
   const built = buildQuickGenSubmission(state, inputContract);
-  const canSubmit = built.ok;
+  const canSubmit = schemaReady && built.ok;
 
   const submit = async () => {
+    if (!schemaReady) {
+      toast.warning('模型参数正在加载，请稍候');
+      return;
+    }
     const result = buildQuickGenSubmission(state, inputContract);
     if (!result.ok) {
       if (result.failure.reason === 'missing_model') toast.warning('请先选择生成类型');
@@ -89,7 +95,7 @@ export default function CommandBar(props: Props) {
         <ModelVersionPicker
           spec={modelVersionSpec}
           value={state.params.model_version}
-          sourceLabel={sourceLabelFromModelId(state.modelId)}
+          sourceLabel={state.selectedModel?.provider.display_name}
           onChange={(v) => onParamChange('model_version', v)}
         />
         <ModelPicker mode={state.mode} value={state.modelId} onChange={onModelChange} />
@@ -100,9 +106,4 @@ export default function CommandBar(props: Props) {
       </div>
     </div>
   );
-}
-
-function sourceLabelFromModelId(modelId: string | null): string | undefined {
-  if (modelId?.startsWith('dreamina:')) return '即梦 CLI';
-  return undefined;
 }

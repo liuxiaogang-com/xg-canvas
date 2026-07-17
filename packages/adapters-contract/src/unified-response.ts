@@ -8,12 +8,21 @@
  * carry an ApiError.
  */
 
-import type { ApiError, StorageDescriptor, TaskStatus } from '@xgcanvas/shared-types';
+import type {
+  ApiError,
+  ChannelRouteSnapshot,
+  StorageDescriptor,
+  TaskStatus,
+} from '@xgcanvas/shared-types';
 
 export interface UnifiedResponse {
+  /** Logical invoke request log id. Filled by InvokeService, not adapters. */
+  request_id?: string;
   status: TaskStatus;
   /** Account route selected for this call. Filled by InvokeService, not adapters. */
-  channel_id?: string;
+  channel_resource_uid?: string;
+  channel_revision_id?: string;
+  channel_route?: ChannelRouteSnapshot;
   credential_id?: string;
   /** Vendor-side task id, required when status='running'. */
   external_task_id?: string;
@@ -44,8 +53,13 @@ export interface ProducedAsset {
 }
 
 export interface UsageStats {
+  /** Uncached input tokens. Cached input is reported separately to avoid double billing. */
   input_tokens?: number;
+  cached_input_tokens?: number;
   output_tokens?: number;
+  image_count?: number;
+  duration_seconds?: number;
+  billing_tier?: string;
   /** Vendor-side credit / unit cost, if reported. */
   cost?: number;
   cost_currency?: string;

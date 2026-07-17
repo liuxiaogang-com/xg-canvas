@@ -3,18 +3,20 @@ import type { ModelInputContract, TaskType } from '@xgcanvas/shared-types';
 /**
  * Normalized model contract served by canvas-api to canvas-web.
  * This is the single shape the canvas inline form consumes (list / schema /
- * cost). In DEMO_MODE it is produced by DemoModelRegistry; otherwise it is
- * mapped from account-api's model-list responses (see model-mappers.ts).
+ * cost). Live and demo execution both consume the same Catalog snapshot.
  */
 
 export interface ModelProviderRef {
-  key: string; // provider slug, e.g. 'jimeng'
+  key: string; // provider slug, e.g. 'dreamina'
   display_name: string;
   icon_url: string;
 }
 
 export interface RichModelSummary {
-  id: string;
+  model_id: string;
+  model_resource_uid: string;
+  model_revision_id: string;
+  catalog_epoch: string;
   display_name: string;
   description: string;
   provider: ModelProviderRef;
@@ -24,6 +26,7 @@ export interface RichModelSummary {
   supports_streaming: boolean;
   tags: string[];
   deprecated: boolean;
+  deprecated_message?: string;
   input_contract?: ModelInputContract;
   pricing_summary: string;
 }
@@ -50,27 +53,21 @@ export interface ParamSpec {
 
 export interface ModelSchemaResponse {
   model_id: string;
+  model_resource_uid: string;
+  model_revision_id: string;
+  catalog_epoch: string;
   params: ParamSpec[];
   defaults: Record<string, unknown>;
   input_contract?: ModelInputContract;
 }
 
 export interface CostEstimate {
-  estimated_credits: number;
-  currency: string; // 'credits' for the demo compute-credit unit
+  estimated_cost: number | null;
+  currency: string | null;
   breakdown: string;
 }
 
 export interface ValidateParamsResult {
   ok: boolean;
   errors: { field: string; message: string }[];
-}
-
-/** Raw JSON-schema-ish pricing block as stored on model_definitions / demo models. */
-export interface ModelPricing {
-  unit: 'token' | 'image' | 'second' | 'character' | 'minute';
-  price?: number;
-  input_price?: number;
-  output_price?: number;
-  currency?: string;
 }

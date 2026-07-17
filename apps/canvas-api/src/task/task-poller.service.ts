@@ -6,6 +6,7 @@ import { Task } from '../database/entities';
 import { decideRetry } from './retry-policy';
 import { type ClaimedTask, TaskService } from './task.service';
 import { TaskTerminalService } from './task-terminal.service';
+import { requireTaskModelPin } from './task-model-pin';
 
 /** Default max wall-clock for async vendor jobs (Dreamina video can be slow). */
 const DEFAULT_RUNNING_TIMEOUT_MS = 45 * 60 * 1000;
@@ -32,11 +33,11 @@ export class TaskPollerService {
 
   async pollOne(t: ClaimedTask, signal?: AbortSignal): Promise<void> {
     if (!t.external_task_id) return;
-    if (!t.channel_id || !t.credential_id) {
+    if (!t.channel_resource_uid || !t.channel_revision_id || !t.channel_route || !t.credential_id) {
       await this.failTerminal(
         t,
         'TASK_ROUTING_METADATA_MISSING',
-        '异步任务缺少 channel_id 或 credential_id，无法继续轮询',
+        '异步任务缺少固定 Channel Revision、路由或 Credential，无法继续轮询',
       );
       return;
     }
@@ -51,15 +52,22 @@ export class TaskPollerService {
     }
 
     try {
-      const r = await this.invoke.poll({
-        task_id: t.id,
-        external_task_id: t.external_task_id!,
-        model_id: t.model_id,
-        workspace_id: t.workspace_id,
-        project_id: t.project_id ?? undefined,
-        channel_id: t.channel_id,
-        credential_id: t.credential_id,
-      }, signal);
+      const r = await this.invoke.poll(
+        {
+          ...requireTaskModelPin(t),
+          task_id: t.id,
+          external_task_id: t.external_task_id!,
+          model_id: t.model_id,
+          workspace_id: t.workspace_id,
+          owner_id: t.owner_id,
+          project_id: t.project_id ?? undefined,
+          channel_resource_uid: t.channel_resource_uid,
+          channel_revision_id: t.channel_revision_id,
+          channel_route: t.channel_route,
+          credential_id: t.credential_id,
+        },
+        signal,
+      );
 
       const res = r.response;
       if (res.status === 'running') {
@@ -75,10 +83,16 @@ export class TaskPollerService {
           assets: res.assets,
           text: res.text,
           json: res.json,
+          usage: res.usage,
         });
         return;
       }
-      await this.failOrRetry(t, res.error?.code ?? 'VENDOR_REJECTED', res.error?.message ?? 'failed');
+      await this.failOrRetry(
+        t,
+        res.error?.code ?? 'VENDOR_REJECTED',
+        res.error?.message ?? 'failed',
+        res.usage,
+      );
     } catch (e) {
       const code = (e as { code?: string }).code ?? 'INTERNAL_ERROR';
       const msg = e instanceof Error ? e.message : String(e);
@@ -113,9 +127,22 @@ export class TaskPollerService {
     }
   }
 
-  private async failOrRetry(t: ClaimedTask, code: string, message: string): Promise<void> {
+  private async failOrRetry(
+    t: ClaimedTask,
+    code: string,
+    message: string,
+    usage?: Record<string, unknown> | null,
+  ): Promise<void> {
     const decision = decideRetry(code, t.retry_count);
     if (decision.retry) {
+      if (t.invoke_request_id) {
+        await this.terminal.finalizeInvokeRequest(t.invoke_request_id, {
+          status: 'error',
+          usage,
+          error_code: code,
+          error_message: message,
+        });
+      }
       await this.tasks.scheduleRetry(
         t.id,
         t.lease_token,
@@ -139,7 +166,12 @@ function isRunningTimedOut(t: Task, timeoutMs: number): boolean {
 }
 
 function isPermanentPollError(code: string, message: string): boolean {
-  if (code === 'CONSTRAINT_VIOLATION' || code === 'VENDOR_REJECTED' || code === 'CLI_INVOCATION_FAILED') {
+  if (
+    code === 'CONSTRAINT_VIOLATION' ||
+    code === 'VENDOR_REJECTED' ||
+    code === 'CLI_INVOCATION_FAILED' ||
+    code === 'CATALOG_REVISION_MISSING'
+  ) {
     return true;
   }
   const m = message.toLowerCase();

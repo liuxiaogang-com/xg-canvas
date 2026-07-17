@@ -3,14 +3,15 @@ import type { LibraryProviderRef, ResolvedGenerationReference } from '@xgcanvas/
 import { pickProviderRef, type ProviderRefCandidate } from './library-ref';
 
 const candidate: ProviderRefCandidate = {
-  provider: 'volcengine',
-  channel_id: 'channel-a',
+  provider_resource_uid: '11111111-1111-4111-8111-111111111111',
+  channel_resource_uid: '22222222-2222-4222-8222-222222222222',
   credential_id: 'credential-a',
 };
 
 function reference(providerRefs: LibraryProviderRef[]): ResolvedGenerationReference {
   return {
     slot: 'driving_audio',
+    type: 'library_ref',
     metadata: {
       library: {
         entry_id: 'entry-a',
@@ -25,8 +26,8 @@ function reference(providerRefs: LibraryProviderRef[]): ResolvedGenerationRefere
 function readyBinding(overrides: Partial<LibraryProviderRef> = {}): LibraryProviderRef {
   return {
     binding_id: 'binding-a',
-    provider: candidate.provider,
-    channel_id: candidate.channel_id,
+    provider_resource_uid: candidate.provider_resource_uid,
+    channel_resource_uid: candidate.channel_resource_uid,
     credential_id: candidate.credential_id,
     external_ref_id: 'voice-a',
     verified_params: { language: 'zh' },
@@ -41,8 +42,8 @@ describe('pickProviderRef', () => {
   });
 
   it.each([
-    ['provider', { provider: 'bailian' }],
-    ['channel', { channel_id: 'channel-b' }],
+    ['provider', { provider_resource_uid: '33333333-3333-4333-8333-333333333333' }],
+    ['channel', { channel_resource_uid: '44444444-4444-4444-8444-444444444444' }],
     ['credential', { credential_id: 'credential-b' }],
   ])('rejects a binding for a different %s', (_name, overrides) => {
     expect(pickProviderRef(reference([readyBinding(overrides)]), candidate)).toBeNull();
@@ -55,23 +56,15 @@ describe('pickProviderRef', () => {
     },
   );
 
-  it('never consumes a legacy ready provider ref', () => {
-    const legacy: LibraryProviderRef = {
-      provider: candidate.provider,
-      external_ref_id: 'legacy-voice',
-      params: { credential_id: candidate.credential_id },
-      status: 'ready',
-    };
-
-    expect(pickProviderRef(reference([legacy]), candidate)).toBeNull();
-  });
-
   it('rejects a malformed binding without a server binding id', () => {
-    expect(pickProviderRef(reference([readyBinding({ binding_id: undefined })]), candidate)).toBeNull();
+    expect(
+      pickProviderRef(reference([readyBinding({ binding_id: undefined })]), candidate),
+    ).toBeNull();
   });
 
   it('accepts a verified binding when the provider has no extra parameters', () => {
-    expect(pickProviderRef(reference([readyBinding({ verified_params: undefined })]), candidate))
-      .toMatchObject({ binding_id: 'binding-a' });
+    expect(
+      pickProviderRef(reference([readyBinding({ verified_params: undefined })]), candidate),
+    ).toMatchObject({ binding_id: 'binding-a' });
   });
 });

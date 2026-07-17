@@ -1,5 +1,13 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { ERROR_CODES, type ErrorCode } from '@xgcanvas/shared-types';
+import { redactSecretLikeValues, redactSecretText } from '@xgcanvas/model-catalog';
 import type { Request, Response } from 'express';
 
 interface ApiErrorBody {
@@ -21,7 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     body.error.request_id =
       (ex as { request_id?: string }).request_id ?? (req as Request & { id?: string }).id;
     if (status >= 500) {
-      this.logger.error(`${req.method} ${req.url} -> ${status} [req ${body.error.request_id}]`, ex as Error);
+      this.logger.error(`${req.method} ${req.path} -> ${status} [req ${body.error.request_id}]`);
     }
     res.status(status).json(body);
   }
@@ -29,18 +37,35 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private shape(ex: unknown): { status: number; body: ApiErrorBody } {
     if (ex instanceof HttpException) {
       const status = ex.getStatus();
-      const r = ex.getResponse() as { code?: ErrorCode; message?: string | string[]; details?: unknown } | string;
-      const message = typeof r === 'string' ? r : Array.isArray(r.message) ? r.message.join('; ') : r.message ?? ex.message;
-      const code = (typeof r === 'object' && r.code) ? r.code : this.codeFromStatus(status);
+      const r = ex.getResponse() as
+        | { code?: ErrorCode; message?: string | string[]; details?: unknown }
+        | string;
+      const message = redactSecretText(
+        typeof r === 'string'
+          ? r
+          : Array.isArray(r.message)
+            ? r.message.join('; ')
+            : (r.message ?? ex.message),
+      );
+      const code = typeof r === 'object' && r.code ? r.code : this.codeFromStatus(status);
       return {
         status,
-        body: { ok: false, error: { code, message, details: typeof r === 'object' ? r.details : undefined } },
+        body: {
+          ok: false,
+          error: {
+            code,
+            message,
+            details: typeof r === 'object' ? redactSecretLikeValues(r.details) : undefined,
+          },
+        },
       };
     }
-    const message = ex instanceof Error ? ex.message : 'internal error';
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      body: { ok: false, error: { code: ERROR_CODES.INTERNAL_ERROR, message } },
+      body: {
+        ok: false,
+        error: { code: ERROR_CODES.INTERNAL_ERROR, message: 'internal error' },
+      },
     };
   }
 

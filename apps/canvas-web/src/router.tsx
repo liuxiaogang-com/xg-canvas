@@ -29,7 +29,6 @@ import SettingsProviderDetail from './settings/pages/ProviderDetail';
 import SettingsModelList from './settings/pages/ModelList';
 import SettingsModelDetail from './settings/pages/ModelDetail';
 import SettingsCredentialList from './settings/pages/CredentialList';
-import SettingsConfigSync from './settings/pages/ConfigSync';
 import SettingsLogs from './settings/pages/Logs';
 import SettingsUsage from './settings/pages/Usage';
 import SettingsBilling from './settings/pages/Billing';
@@ -127,7 +126,6 @@ export const router = createBrowserRouter([
                   { path: 'models', element: <RequireCap cap="system.model.manage"><SettingsModelList /></RequireCap> },
                   { path: 'models/:id', element: <RequireCap cap="system.model.manage"><SettingsModelDetail /></RequireCap> },
                   { path: 'credentials', element: <RequireCap cap="system.credential.manage"><SettingsCredentialList /></RequireCap> },
-                  { path: 'config-sync', element: <RequireCap cap="system.config.sync"><SettingsConfigSync /></RequireCap> },
                   { path: 'logs', element: <RequireCap cap="system.request_log.view"><SettingsLogs /></RequireCap> },
                   { path: 'usage', element: <RequireCap cap="system.billing.view"><SettingsUsage /></RequireCap> },
                   { path: 'billing', element: <RequireCap cap="system.billing.view"><SettingsBilling /></RequireCap> },

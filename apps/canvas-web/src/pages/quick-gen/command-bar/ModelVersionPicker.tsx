@@ -44,7 +44,7 @@ export default function ModelVersionPicker({ spec, value, sourceLabel, onChange 
   return (
     <div className="qg-ctl-wrap" ref={ref}>
       <button type="button" className="qg-ctl qg-ctl--primary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span className="qg-ctl__val">{displayModelVersion(current)}</span>
+        <span className="qg-ctl__val">{displayModelVersion(spec, current)}</span>
         <span className="qg-ctl__caret">{Caret}</span>
       </button>
       {open ? (
@@ -63,7 +63,7 @@ export default function ModelVersionPicker({ spec, value, sourceLabel, onChange 
               >
                 <span className="qg-versionopt">
                   {sourceLabel ? <span className="qg-versionopt__source">{sourceLabel}</span> : null}
-                  <span className="qg-versionopt__name">{displayModelVersion(option.value)}</span>
+                  <span className="qg-versionopt__name">{displayModelVersion(spec, option.value)}</span>
                 </span>
               </button>
             ))}

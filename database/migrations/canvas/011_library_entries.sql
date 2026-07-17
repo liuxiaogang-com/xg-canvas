@@ -1,8 +1,10 @@
 -- Unified reusable-resource library (characters, voices, styles, ...).
 -- An entry carries two coexisting binding forms:
 --   material      -> assets in our bucket ({"asset_ids": [...]})
---   provider_refs -> vendor-side resources ([{provider, external_ref_id, params,
---                    sample_asset_id, status}])
+--   provider_refs -> vendor-side resources ([{provider_resource_uid,
+--                                             channel_resource_uid, credential_id,
+--                                             external_ref_id, verified_params,
+--                                             sample_asset_id, status}])
 CREATE TABLE canvas.library_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   kind VARCHAR(30) NOT NULL,                        -- voice|character|style|...

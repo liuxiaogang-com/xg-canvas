@@ -1,13 +1,8 @@
 /**
- * defineModel() — turns a parsed YAML manifest entry into a runtime
- * registry entry. Spec: docs/adapter-guide.md.
- *
- * The YAML loader (account-api/registry/yaml-loader.ts) hands us a
- * `ModelManifestEntry`; we attach a constraint-engine validator so
- * InvokeService can run a single `validate(params)` before dispatch.
- *
- * NOTE: this file purposely does NOT execute YAML I/O — it's a pure
- * transform so it can be reused in tests.
+ * Turns the runtime manifest flattened by RegistrySnapshotFactory from a
+ * validated Catalog Revision into an adapter registry entry. It binds the
+ * param schema and constraints to one validator and performs no Catalog,
+ * database or file I/O.
  */
 
 import {
@@ -18,10 +13,7 @@ import {
 } from '@xgcanvas/constraint-engine';
 import type { Capability, ModelInputContract, TaskType } from '@xgcanvas/shared-types';
 
-/**
- * What the YAML file says (one entry per model). The loader fills the
- * fields below; defaults and constraints are forwarded to constraint-engine.
- */
+/** Adapter runtime contract; this is not the authoring YAML schema. */
 export interface ModelManifestEntry {
   id: string;
   display_name: string;

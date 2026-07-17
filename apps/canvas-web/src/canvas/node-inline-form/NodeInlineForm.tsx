@@ -62,11 +62,16 @@ export default function NodeInlineForm({ projectId, onExpand: _onExpand }: Props
   const promptField = form?.prompt?.field ?? 'prompt';
   const modelId = (data[modelField] as string | null) ?? null;
   const mode = (data[modeField] as string) ?? form?.modes?.[0]?.id ?? '';
+  const taskType = typeof form?.taskType === 'function' ? form.taskType(data) : form?.taskType ?? '';
 
-  const { models, specs, defaults, inputContract } = useInlineModel(form?.taskType ?? '', modelId);
+  const { models, selectedModel, specs, defaults, inputContract } = useInlineModel(
+    taskType,
+    modelId,
+  );
   const { modelVersionSpec, paramSpecs } = splitModelVersionParam(specs);
-  const selectedModel = useMemo(() => models.find((model) => model.id === modelId), [models, modelId]);
-  const modelSource = selectedModel ? sourceLabel(selectedModel.provider.key, selectedModel.provider.display_name) : undefined;
+  const modelSource = selectedModel
+    ? selectedModel.provider.display_name || selectedModel.provider.key
+    : undefined;
 
   const visibleModes = useMemo(() => {
     if (!form?.modes?.length) return undefined;
@@ -79,7 +84,7 @@ export default function NodeInlineForm({ projectId, onExpand: _onExpand }: Props
     return out;
   }, [specs, data, defaults]);
 
-  const cost = useCostEstimate(modelId, paramValues, !!form?.cost);
+  const cost = useCostEstimate(modelId, paramValues, !!form?.cost, selectedModel);
 
   const persist = (patch: Record<string, unknown>) => {
     if (!node) return;
@@ -206,7 +211,7 @@ export default function NodeInlineForm({ projectId, onExpand: _onExpand }: Props
         {form.cost ? <CostBadge cost={cost} /> : null}
         <SubmitButton
           label={form.submit.label}
-          disabled={!modelId}
+          disabled={!selectedModel}
           busy={busy}
           onClick={() => runner.submit(node.id, projectId)}
         />
@@ -219,9 +224,4 @@ function stripTransient(d: CanvasNodeData | undefined): Record<string, unknown> 
   if (!d) return {};
   const { status: _s, task_id: _t, ...rest } = d;
   return rest as Record<string, unknown>;
-}
-
-function sourceLabel(providerKey: string, displayName: string): string {
-  if (providerKey === 'dreamina') return '即梦 CLI';
-  return displayName || providerKey;
 }

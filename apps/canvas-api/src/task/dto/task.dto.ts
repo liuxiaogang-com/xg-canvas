@@ -1,10 +1,12 @@
-import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { MAX_MODEL_ID_LENGTH, TASK_TYPES, type TaskType } from '@xgcanvas/shared-types';
+import { IsIn, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateTaskDto {
-  @IsString()
-  task_type: string; // gen.text | gen.image | ...
+  @IsIn(TASK_TYPES)
+  task_type: TaskType;
 
   @IsString()
+  @MaxLength(MAX_MODEL_ID_LENGTH)
   model_id: string;
 
   @IsObject()

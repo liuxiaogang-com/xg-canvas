@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { MAX_MODEL_ID_LENGTH } from '@xgcanvas/shared-types';
 
 /** canvas.conversations — a chat thread (the 对话 lane). */
 @Entity({ name: 'conversations' })
@@ -19,7 +27,7 @@ export class Conversation {
   @Column({ type: 'varchar', length: 200, default: '新对话' })
   title: string;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'varchar', length: MAX_MODEL_ID_LENGTH, nullable: true })
   model_id: string | null;
 
   @Column({ type: 'text', nullable: true })

@@ -6,7 +6,13 @@ import { PollService } from '../account/invoke/poll.service';
 import type { CancelRequestDto } from '../account/invoke/dto/cancel-request.dto';
 import type { InvokeRequestDto } from '../account/invoke/dto/invoke-request.dto';
 import type { PollRequestDto } from '../account/invoke/dto/poll-request.dto';
-import type { CancelRequest, InvokeRequest, InvokeResponse, PollRequest, PollResponse } from './types';
+import type {
+  CancelRequest,
+  InvokeRequest,
+  InvokeResponse,
+  PollRequest,
+  PollResponse,
+} from './types';
 
 /**
  * Account-client seam for invoke/poll/cancel. It is backed by in-process
@@ -24,7 +30,10 @@ export class AccountInvokeClient {
   ) {}
 
   invoke(req: InvokeRequest, signal?: AbortSignal): Promise<InvokeResponse> {
-    return this.invokeSvc.invoke(req as unknown as InvokeRequestDto, signal) as unknown as Promise<InvokeResponse>;
+    return this.invokeSvc.invoke(
+      req as InvokeRequestDto,
+      signal,
+    ) as unknown as Promise<InvokeResponse>;
   }
 
   /**
@@ -32,11 +41,14 @@ export class AccountInvokeClient {
    * `signal` aborts the vendor stream when the client disconnects.
    */
   stream(req: InvokeRequest, signal?: AbortSignal): AsyncGenerator<InvokeStreamEvent> {
-    return this.invokeSvc.stream(req as unknown as InvokeRequestDto, signal);
+    return this.invokeSvc.stream(req as InvokeRequestDto, signal);
   }
 
   poll(req: PollRequest, signal?: AbortSignal): Promise<PollResponse> {
-    return this.pollSvc.poll(req as unknown as PollRequestDto, signal) as unknown as Promise<PollResponse>;
+    return this.pollSvc.poll(
+      req as unknown as PollRequestDto,
+      signal,
+    ) as unknown as Promise<PollResponse>;
   }
 
   async cancel(req: CancelRequest): Promise<void> {

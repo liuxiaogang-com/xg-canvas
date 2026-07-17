@@ -1,5 +1,17 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import type { TaskStatus, TaskType } from '@xgcanvas/shared-types';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import {
+  MAX_MODEL_ID_LENGTH,
+  type ChannelRouteSnapshot,
+  type TaskStatus,
+  type TaskType,
+} from '@xgcanvas/shared-types';
 
 @Entity({ schema: 'canvas', name: 'tasks' })
 @Index('idx_tasks_owner_status', ['owner_id', 'status', 'created_at'])
@@ -11,16 +23,49 @@ export class Task {
   type: TaskType;
 
   @Column({ type: 'varchar', length: 20, default: 'pending' })
-  status: TaskStatus | 'pending';
+  status: TaskStatus;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: MAX_MODEL_ID_LENGTH })
   model_id: string;
+
+  @Column({ type: 'uuid' })
+  model_resource_uid: string;
+
+  @Column({ type: 'uuid' })
+  model_revision_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  rate_card_revision_id: string | null;
+
+  @Column({ type: 'bigint' })
+  catalog_epoch: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'live' })
+  execution_mode: 'live' | 'demo';
 
   @Column({ type: 'varchar', length: 200, nullable: true })
   external_task_id: string | null;
 
+  /** Correlates an async task with its pending ops.request_logs row. */
   @Column({ type: 'uuid', nullable: true })
-  channel_id: string | null;
+  invoke_request_id: string | null;
+
+  /** Stable group prepared before the first outbound adapter attempt. */
+  @Column({ type: 'uuid', nullable: true })
+  invoke_logical_request_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  invoke_prepared_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  channel_resource_uid: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  channel_revision_id: string | null;
+
+  /** Frozen non-secret endpoint/options used by poll and cancel. */
+  @Column({ type: 'jsonb', nullable: true })
+  channel_route: ChannelRouteSnapshot | null;
 
   @Column({ type: 'uuid', nullable: true })
   credential_id: string | null;

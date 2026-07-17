@@ -1,10 +1,6 @@
-import type { AssetStub } from '@xgcanvas/adapters-contract';
+import type { AssetStub, UsageStats } from '@xgcanvas/adapters-contract';
 
-import type {
-  DashScopeImageResponse,
-  DashScopeTaskResponse,
-  ParsedTaskStatus,
-} from './types';
+import type { DashScopeImageResponse, DashScopeTaskResponse, ParsedTaskStatus } from './types';
 
 export function parseImageAssets(res: DashScopeImageResponse): AssetStub[] {
   const urls: string[] = [];
@@ -24,6 +20,22 @@ export function parseImageAssets(res: DashScopeImageResponse): AssetStub[] {
     filename: `bailian-image-${i + 1}.png`,
     role: 'main',
   }));
+}
+
+export function normalizeBailianUsage(
+  usage: Record<string, unknown> | undefined,
+): UsageStats | undefined {
+  if (!usage) return undefined;
+  const normalized: UsageStats = {};
+  copyFiniteNumber(usage, normalized, 'input_tokens');
+  copyFiniteNumber(usage, normalized, 'cached_input_tokens');
+  copyFiniteNumber(usage, normalized, 'output_tokens');
+  copyFiniteNumber(usage, normalized, 'image_count');
+  copyFiniteNumber(usage, normalized, 'duration_seconds');
+  copyFiniteNumber(usage, normalized, 'cost');
+  if (typeof usage.billing_tier === 'string') normalized.billing_tier = usage.billing_tier;
+  if (typeof usage.cost_currency === 'string') normalized.cost_currency = usage.cost_currency;
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 export function parseTaskStatus(res: DashScopeTaskResponse): ParsedTaskStatus {
@@ -72,4 +84,21 @@ function extensionFromUrl(url: string): string {
   const lower = url.toLowerCase().split('?')[0];
   const match = lower.match(/\.(png|jpg|jpeg|webp|mp4|webm)$/);
   return match ? `.${match[1]}` : '.bin';
+}
+
+function copyFiniteNumber(
+  source: Record<string, unknown>,
+  target: UsageStats,
+  key: keyof Pick<
+    UsageStats,
+    | 'input_tokens'
+    | 'cached_input_tokens'
+    | 'output_tokens'
+    | 'image_count'
+    | 'duration_seconds'
+    | 'cost'
+  >,
+): void {
+  const value = source[key];
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) target[key] = value;
 }

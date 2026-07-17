@@ -14,6 +14,12 @@ export class FeatureConfigController {
     return this.svc.getAll();
   }
 
+  @Get('model-options')
+  @RequirePerm('system.config.manage', { scope: 'system' })
+  modelOptions() {
+    return this.svc.getModelOptions();
+  }
+
   @Get(':key')
   @RequirePerm('system.config.manage', { scope: 'system' })
   async get(@Param('key') key: string) {

@@ -5,7 +5,7 @@ import { RegistryService } from './registry.service';
 import { RequirePerm } from '../../authz/require-perm.decorator';
 
 @RequirePerm('system.config.sync', { scope: 'system' })
-@Controller('admin/v1/registry')
+@Controller('admin/registry')
 export class RegistryController {
   constructor(
     private readonly bootstrap: RegistryBootstrapService,
@@ -15,7 +15,7 @@ export class RegistryController {
   @Post('reload')
   @HttpCode(200)
   async reload() {
-    return this.bootstrap.reload({ syncDb: true });
+    return this.bootstrap.reload();
   }
 
   @Get('snapshot')

@@ -16,6 +16,9 @@ import { TaskPollerService } from './task-poller.service';
 import { TaskRunnerService } from './task-runner.service';
 import { TaskService } from './task.service';
 import { TaskTerminalService } from './task-terminal.service';
+import { TaskInvokeRecoveryService } from './task-invoke-recovery.service';
+import { TaskInputResolverService } from './task-input-resolver.service';
+import { TaskRetryService } from './task-retry.service';
 
 @Module({
   imports: [
@@ -36,6 +39,9 @@ import { TaskTerminalService } from './task-terminal.service';
     TaskRunnerService,
     TaskNodeWritebackService,
     TaskTerminalService,
+    TaskInvokeRecoveryService,
+    TaskInputResolverService,
+    TaskRetryService,
   ],
   exports: [TaskService],
 })

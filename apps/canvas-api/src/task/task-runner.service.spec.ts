@@ -11,6 +11,7 @@ describe('TaskRunnerService concurrency', () => {
     claimPending: jest.fn(),
     claimDuePolls: jest.fn(),
     renewLease: jest.fn(),
+    isCatalogReady: jest.fn(() => true),
   } as unknown as TaskService;
   const executor = { run: jest.fn() } as unknown as TaskExecutorService;
   const mockExecutor = { run: jest.fn() } as unknown as MockExecutorService;
@@ -42,6 +43,30 @@ describe('TaskRunnerService concurrency', () => {
 
     pollWork.resolve();
     await flushPromises();
+    expect(tasks.claimPending).toHaveBeenCalledWith(1, 120_000, ['live', 'demo']);
+    expect(tasks.claimDuePolls).toHaveBeenCalledWith(1, 120_000, ['live']);
+  });
+
+  it('dispatches each claimed task according to its persisted execution mode', async () => {
+    (tasks.claimPending as jest.Mock).mockResolvedValue([
+      claimed('live-task', 'live'),
+      claimed('demo-task', 'demo'),
+    ]);
+    (executor.run as jest.Mock).mockResolvedValue(undefined);
+    (mockExecutor.run as jest.Mock).mockResolvedValue(undefined);
+    const runner = makeRunner({ TASK_CONCURRENCY: '2', DEMO_MODE: 'true' });
+
+    await callPrivate(runner, 'tick');
+    await flushPromises();
+
+    expect(executor.run).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'live-task' }),
+      expect.any(AbortSignal),
+    );
+    expect(mockExecutor.run).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'demo-task' }),
+      expect.any(AbortSignal),
+    );
   });
 
   it('fails fast on an invalid numeric concurrency setting', () => {
@@ -58,7 +83,10 @@ describe('TaskRunnerService concurrency', () => {
   }
 });
 
-async function callPrivate(runner: TaskRunnerService, method: 'tick' | 'pollRunning'): Promise<void> {
+async function callPrivate(
+  runner: TaskRunnerService,
+  method: 'tick' | 'pollRunning',
+): Promise<void> {
   await (runner as unknown as Record<string, () => Promise<void>>)[method]();
 }
 
@@ -75,9 +103,10 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function claimed(id: string): ClaimedTask {
+function claimed(id: string, executionMode: 'live' | 'demo' = 'live'): ClaimedTask {
   return {
     id,
+    execution_mode: executionMode,
     lease_token: '11111111-1111-4111-8111-111111111111',
     lease_expires_at: new Date(Date.now() + 60_000),
   } as ClaimedTask;

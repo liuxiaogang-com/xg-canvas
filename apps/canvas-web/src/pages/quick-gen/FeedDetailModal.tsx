@@ -40,8 +40,8 @@ export default function FeedDetailModal({ task, initialIndex, onClose, onRetry, 
   const assetId = assets[idx] ?? null;
   const bigUrl = useAssetUrl(isVideo ? null : assetId, 3600, 'full');
   const prompt = (task.inputs as { prompt?: string }).prompt ?? '';
-  const refs = ((task.inputs as { references?: { asset_id?: string; type?: string }[] }).references ?? []).filter(
-    (ref) => ref.asset_id && (ref.type === undefined || ref.type === 'image' || ref.type === 'image_list'),
+  const refs = ((task.inputs as { references?: { asset_id?: string; type: string }[] }).references ?? []).filter(
+    (ref) => ref.asset_id && (ref.type === 'image' || ref.type === 'image_list'),
   );
   const params = task.params as { aspect_ratio?: string; resolution?: string; duration_sec?: number };
   const aspect = params.aspect_ratio?.includes(':')

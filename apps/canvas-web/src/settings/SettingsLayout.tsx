@@ -18,6 +18,7 @@ const GROUPS: { title?: string; items: Tab[] }[] = [
     title: '模型接入',
     items: [
       { to: '/settings/credentials', label: '凭证', cap: 'system.credential.manage' },
+      { to: '/settings/providers', label: '供应商', cap: 'system.model.manage' },
       { to: '/settings/models', label: '模型', cap: 'system.model.manage' },
       { to: '/settings/feature-config', label: '功能配置', cap: 'system.config.manage' },
     ],
@@ -41,12 +42,6 @@ const GROUPS: { title?: string; items: Tab[] }[] = [
       { to: '/settings/logs', label: '日志', cap: 'system.request_log.view' },
       { to: '/settings/usage', label: '用量统计', cap: 'system.billing.view' },
       { to: '/settings/billing', label: '计费', cap: 'system.billing.view' },
-    ],
-  },
-  {
-    title: '高级',
-    items: [
-      { to: '/settings/config-sync', label: '配置同步', cap: 'system.config.sync' },
     ],
   },
 ];

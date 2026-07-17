@@ -6,15 +6,20 @@ COPY apps/canvas-api/package.json ./apps/canvas-api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/constraint-engine/package.json ./packages/constraint-engine/
 COPY packages/adapters-contract/package.json ./packages/adapters-contract/
+COPY packages/model-catalog/package.json ./packages/model-catalog/
 RUN pnpm config set registry https://registry.npmmirror.com && pnpm install --frozen-lockfile
 
 COPY packages/shared-types ./packages/shared-types
 COPY packages/constraint-engine ./packages/constraint-engine
 COPY packages/adapters-contract ./packages/adapters-contract
+COPY packages/model-catalog ./packages/model-catalog
+COPY config ./config
 COPY apps/canvas-api ./apps/canvas-api
 RUN pnpm --filter @xgcanvas/shared-types build && \
     pnpm --filter @xgcanvas/constraint-engine build && \
-    pnpm --filter @xgcanvas/adapters-contract build
+    pnpm --filter @xgcanvas/adapters-contract build && \
+    pnpm --filter @xgcanvas/model-catalog build && \
+    pnpm --filter @xgcanvas/model-catalog catalog:build
 RUN pnpm --filter @xgcanvas/canvas-api exec nest build -p tsconfig.docker.json
 
 FROM node:22-slim AS app-base
@@ -33,6 +38,7 @@ COPY apps/canvas-api/package.json ./apps/canvas-api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/constraint-engine/package.json ./packages/constraint-engine/
 COPY packages/adapters-contract/package.json ./packages/adapters-contract/
+COPY packages/model-catalog/package.json ./packages/model-catalog/
 RUN pnpm config set registry https://registry.npmmirror.com
 
 FROM app-base AS dev
@@ -40,12 +46,15 @@ RUN pnpm install --frozen-lockfile
 COPY packages/shared-types ./packages/shared-types
 COPY packages/constraint-engine ./packages/constraint-engine
 COPY packages/adapters-contract ./packages/adapters-contract
+COPY packages/model-catalog ./packages/model-catalog
 RUN pnpm --filter @xgcanvas/shared-types build && \
     pnpm --filter @xgcanvas/constraint-engine build && \
-    pnpm --filter @xgcanvas/adapters-contract build
+    pnpm --filter @xgcanvas/adapters-contract build && \
+    pnpm --filter @xgcanvas/model-catalog build
 COPY apps/canvas-api ./apps/canvas-api
 COPY --from=build /app/apps/canvas-api/dist ./apps/canvas-api/dist
 COPY config ./config
+COPY --from=build /app/config/model-catalog.bundle.json ./config/model-catalog.bundle.json
 COPY scripts ./scripts
 COPY database ./database
 RUN mkdir -p /var/lib/xgcanvas/secrets && chmod 700 /var/lib/xgcanvas/secrets
@@ -57,8 +66,9 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=build /app/packages/shared-types/dist ./packages/shared-types/dist
 COPY --from=build /app/packages/constraint-engine/dist ./packages/constraint-engine/dist
 COPY --from=build /app/packages/adapters-contract/dist ./packages/adapters-contract/dist
+COPY --from=build /app/packages/model-catalog/dist ./packages/model-catalog/dist
 COPY --from=build /app/apps/canvas-api/dist ./apps/canvas-api/dist
-COPY config ./config
+COPY --from=build /app/config/model-catalog.bundle.json ./config/model-catalog.bundle.json
 COPY scripts ./scripts
 COPY database ./database
 RUN mkdir -p /var/lib/xgcanvas/secrets && chmod 700 /var/lib/xgcanvas/secrets

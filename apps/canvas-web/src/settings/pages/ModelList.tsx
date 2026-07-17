@@ -3,23 +3,25 @@
  * row click opens the detail editor. */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { TaskType } from '@xgcanvas/shared-types';
 import { SettingsPage, DataTable, BoolBadge, Badge, Loading, ErrorNote } from '../components/kit';
 import type { Column } from '../components/kit';
 import { Select } from '../../ui';
 import { modelApi, providerApi } from '../api';
 import type { ModelDefinition, Provider } from '../types';
+import { CatalogOriginBadge } from '../components/CatalogOriginBadge';
+import CreateLocalModelModal from './CreateLocalModelModal';
 
 /* task type -> badge tone, mirroring the original AntD colour map */
 const TASK_TONE: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'default'> = {
-  text2image: 'accent',
-  image2image: 'danger',
-  image_upscale: 'warning',
-  text2video: 'warning',
-  image2video: 'warning',
-  frames2video: 'success',
-  multimodal2video: 'success',
-  chat: 'info',
-  completion: 'info',
+  'gen.text': 'info',
+  'gen.image': 'accent',
+  'gen.video': 'warning',
+  'gen.audio': 'success',
+  'audio.transcribe': 'info',
+  'image.edit': 'danger',
+  'image.upscale': 'warning',
+  'video.upscale': 'warning',
 };
 
 function errMessage(e: unknown): string {
@@ -32,10 +34,11 @@ export default function ModelList() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<string | undefined>();
+  const [filterType, setFilterType] = useState<TaskType | undefined>();
   const [filterProvider, setFilterProvider] = useState<string | undefined>();
-  // Default to only enabled (i.e. actually configured/usable) models; the toggle
-  // reveals disabled ones for maintenance.
+  const [createOpen, setCreateOpen] = useState(false);
+  // Default to models enabled by Runtime Settings. Availability additionally
+  // depends on Provider/Channel/Credential and is enforced by the public list.
   const [showDisabled, setShowDisabled] = useState(false);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function ModelList() {
       setLoading(true);
       setError(null);
       try {
-        const [m, p] = await Promise.all([modelApi.list(), providerApi.list()]);
+        const [m, p] = await Promise.all([modelApi.list(true), providerApi.list()]);
         if (!alive) return;
         setModels(m);
         setProviders(p);
@@ -60,7 +63,7 @@ export default function ModelList() {
   }, []);
 
   const providerMap = useMemo(
-    () => Object.fromEntries(providers.map((p) => [p.id, p.display_name])),
+    () => Object.fromEntries(providers.map((p) => [p.resource_uid, p.display_name])),
     [providers],
   );
 
@@ -73,7 +76,7 @@ export default function ModelList() {
     let out = models;
     if (!showDisabled) out = out.filter((m) => m.enabled);
     if (filterType) out = out.filter((m) => m.task_types?.includes(filterType));
-    if (filterProvider) out = out.filter((m) => m.provider_id === filterProvider);
+    if (filterProvider) out = out.filter((m) => m.provider_resource_uid === filterProvider);
     return out;
   }, [models, showDisabled, filterType, filterProvider]);
 
@@ -91,7 +94,7 @@ export default function ModelList() {
     {
       key: 'provider',
       header: '提供商',
-      render: (r) => providerMap[r.provider_id] ?? r.provider_id,
+      render: (r) => providerMap[r.provider_resource_uid] ?? r.provider_resource_uid,
     },
     {
       key: 'task_types',
@@ -105,6 +108,11 @@ export default function ModelList() {
           ))}
         </div>
       ),
+    },
+    {
+      key: 'origin',
+      header: '来源',
+      render: (r) => <CatalogOriginBadge origin={r.origin} />,
     },
     {
       key: 'invocation_mode',
@@ -125,7 +133,7 @@ export default function ModelList() {
 
   const filters = (
     <div className="set-filters">
-      <Select<string>
+      <Select<TaskType | ''>
         value={filterType}
         placeholder="筛选任务类型"
         options={[
@@ -139,7 +147,7 @@ export default function ModelList() {
         placeholder="筛选提供商"
         options={[
           { value: '', label: '全部提供商' },
-          ...providers.map((p) => ({ value: p.id, label: p.display_name })),
+          ...providers.map((p) => ({ value: p.resource_uid, label: p.display_name })),
         ]}
         onChange={(v) => setFilterProvider(v || undefined)}
       />
@@ -154,8 +162,17 @@ export default function ModelList() {
     </div>
   );
 
+  const actions = (
+    <>
+      <button type="button" className="btn btn--primary" onClick={() => setCreateOpen(true)}>
+        新建本地模型
+      </button>
+      {filters}
+    </>
+  );
+
   return (
-    <SettingsPage title="模型" description="默认仅显示已启用（已配置可用）的模型；运营字段可在详情页调整。" actions={filters}>
+    <SettingsPage title="模型" description="默认仅显示 Runtime Settings 已启用的模型；实际可用性还取决于供应商、渠道与凭证。" actions={actions}>
       {loading ? (
         <Loading />
       ) : error ? (
@@ -164,11 +181,16 @@ export default function ModelList() {
         <DataTable
           columns={columns}
           rows={rows}
-          rowKey={(r) => r.id}
-          onRowClick={(r) => navigate(`/settings/models/${r.id}`)}
+          rowKey={(r) => r.resource_uid}
+          onRowClick={(r) => navigate(`/settings/models/${r.resource_uid}`)}
           empty="暂无模型"
         />
       )}
+      <CreateLocalModelModal
+        open={createOpen}
+        providers={providers}
+        onClose={() => setCreateOpen(false)}
+      />
     </SettingsPage>
   );
 }

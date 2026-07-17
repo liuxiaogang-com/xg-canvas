@@ -34,7 +34,9 @@ describe('input contract validator', () => {
   });
 
   it('rejects missing required slots', () => {
-    expect(() => validateInputContract(contract, { mode: 'first_last_frame', references: [] })).toThrow(AdapterError);
+    expect(() =>
+      validateInputContract(contract, { mode: 'first_last_frame', references: [] }),
+    ).toThrow(AdapterError);
   });
 
   it('rejects too many references for a slot', () => {
@@ -58,17 +60,30 @@ describe('input contract validator', () => {
     ).toThrow(AdapterError);
   });
 
+  it('rejects references for slots not declared by the selected mode', () => {
+    expect(() =>
+      validateInputContract(contract, {
+        mode: 'image_to_video',
+        references: [{ slot: 'style_image', type: 'image', url: 'https://assets.test/a.png' }],
+      }),
+    ).toThrow(AdapterError);
+  });
+
   it('enforces declared library kinds and material forms', () => {
     const libraryContract = {
       default_mode: 'image_to_video',
-      modes: [{
-        id: 'image_to_video',
-        required_slots: [{
-          slot: 'source_image',
-          type: 'image' as const,
-          library: { kinds: ['character'], forms: ['material' as const] },
-        }],
-      }],
+      modes: [
+        {
+          id: 'image_to_video',
+          required_slots: [
+            {
+              slot: 'source_image',
+              type: 'image' as const,
+              library: { kinds: ['character'], forms: ['material' as const] },
+            },
+          ],
+        },
+      ],
     };
     const material = {
       slot: 'source_image',
@@ -77,19 +92,25 @@ describe('input contract validator', () => {
       metadata: { library: { kind: 'character', provider_refs: [] } },
     };
     expect(() => validateInputContract(libraryContract, { references: [material] })).not.toThrow();
-    expect(() => validateInputContract(libraryContract, {
-      references: [{ ...material, metadata: { library: { kind: 'voice', provider_refs: [] } } }],
-    })).toThrow(AdapterError);
+    expect(() =>
+      validateInputContract(libraryContract, {
+        references: [{ ...material, metadata: { library: { kind: 'voice', provider_refs: [] } } }],
+      }),
+    ).toThrow(AdapterError);
   });
 
   it('rejects library metadata on a slot without a library contract', () => {
-    expect(() => validateInputContract(contract, {
-      references: [{
-        slot: 'source_image',
-        type: 'image',
-        url: 'https://assets.test/a.png',
-        metadata: { library: { kind: 'character', provider_refs: [] } },
-      }],
-    })).toThrow(AdapterError);
+    expect(() =>
+      validateInputContract(contract, {
+        references: [
+          {
+            slot: 'source_image',
+            type: 'image',
+            url: 'https://assets.test/a.png',
+            metadata: { library: { kind: 'character', provider_refs: [] } },
+          },
+        ],
+      }),
+    ).toThrow(AdapterError);
   });
 });

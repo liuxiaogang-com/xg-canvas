@@ -1,0 +1,116 @@
+version: "1.0"
+provider_slug: bailian
+models:
+  - resource_uid: 3b6bb2f0-91dc-4437-8466-710d365a3daf
+    revision: 1
+    model_id: bailian:qwen-max
+    provider_model_id: qwen-max
+    display_name: 通义千问 Max
+    description: 旗舰文本模型，适合复杂推理和高难度任务。
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - json_mode
+      - tool_use
+      - streaming
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - bailian-openai-compat
+    supports_streaming: true
+    tags:
+      - 旗舰
+      - 文本
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+    pricing:
+      resource_uid: 300b8dc9-e1f0-4342-bd16-ee90f3d6031b
+      revision: 1
+      currency: CNY
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 2.4
+        - meter: output_tokens
+          per: 1000000
+          price: 9.6
+  - resource_uid: 7897a1ee-41b2-4c1b-9f9a-c446ee8a6b81
+    revision: 1
+    model_id: bailian:qwen-plus
+    provider_model_id: qwen-plus
+    display_name: 通义千问 Plus
+    description: 均衡型文本模型，支持长上下文和流式输出。
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - json_mode
+      - tool_use
+      - streaming
+      - reasoning
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - bailian-openai-compat
+    supports_streaming: true
+    tags:
+      - 推荐
+      - 文本
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 32768
+    pricing:
+      resource_uid: a4c170e4-f566-4f4d-a570-73caa4ae4a3c
+      revision: 1
+      currency: CNY
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 0.8
+        - meter: output_tokens
+          per: 1000000
+          price: 2
+  - resource_uid: d26814e0-39c8-42ed-b72d-fb4f5beb751e
+    revision: 1
+    model_id: bailian:qwen-flash
+    provider_model_id: qwen-flash
+    display_name: 通义千问 Flash
+    description: 低成本高速文本模型。
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - json_mode
+      - tool_use
+      - streaming
+      - reasoning
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - bailian-openai-compat
+    supports_streaming: true
+    tags:
+      - 高速
+      - 低成本
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 32768
+    pricing:
+      resource_uid: 5ed98594-013d-4545-b201-216f83bbb099
+      revision: 1
+      currency: CNY
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 0.15
+        - meter: output_tokens
+          per: 1000000
+          price: 1.5

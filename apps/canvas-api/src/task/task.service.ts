@@ -1,7 +1,14 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type EntityManager, Repository } from 'typeorm';
 import type { TaskType } from '@xgcanvas/shared-types';
+import type { ModelRevisionPin } from '@xgcanvas/shared-types';
+import { ConfigService } from '@nestjs/config';
 
 import { AuthzService } from '../authz/authz.service';
 import { Task } from '../database/entities';
@@ -9,9 +16,15 @@ import { ProjectService } from '../project/project.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import type { TaskStatus } from './state-machine';
 import type { CreateTaskDto } from './dto/task.dto';
-import { TaskExecutionStore, type ClaimedTask } from './task-execution.store';
+import {
+  TaskExecutionStore,
+  type ClaimedTask,
+  type ExternalTaskCorrelation,
+} from './task-execution.store';
 import { validatePublicTaskInputs } from './task-input.validator';
 import { TaskTerminalService } from './task-terminal.service';
+import { AccountModelsClient } from '../account-client';
+import { TaskRetryService } from './task-retry.service';
 
 export type { ClaimedTask } from './task-execution.store';
 
@@ -36,7 +49,14 @@ export class TaskService {
     private readonly ds: DataSource,
     private readonly terminal: TaskTerminalService,
     private readonly execution: TaskExecutionStore,
-  ) {}
+    private readonly accountModels: AccountModelsClient,
+    private readonly retryTasks: TaskRetryService,
+    config: ConfigService,
+  ) {
+    this.demoMode = config.get<string>('DEMO_MODE', 'false') === 'true';
+  }
+
+  private readonly demoMode: boolean;
 
   async create(userId: string, workspaceId: string, dto: CreateTaskDto): Promise<Task> {
     // Re-verify workspace membership on every create — the session's workspace_id
@@ -48,11 +68,17 @@ export class TaskService {
       // Verifies membership via project service.
       const project = await this.projects.getOrThrow(userId, dto.project_id);
       if (project.workspace_id !== workspaceId) {
-        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'project is outside the active workspace' });
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'project is outside the active workspace',
+        });
       }
       const mayRun = await this.authz.can(userId, 'project.task.run', 'project', dto.project_id);
       if (!mayRun) {
-        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'project.task.run is required' });
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'project.task.run is required',
+        });
       }
     }
     if (dto.source_node_id) {
@@ -62,27 +88,50 @@ export class TaskService {
           message: 'source_node_id requires project_id',
         });
       }
-      const mayEdit = await this.authz.can(userId, 'project.canvas.node.edit', 'project', dto.project_id);
+      const mayEdit = await this.authz.can(
+        userId,
+        'project.canvas.node.edit',
+        'project',
+        dto.project_id,
+      );
       if (!mayEdit) {
         throw new ForbiddenException({
           code: 'FORBIDDEN',
           message: 'source node write-back requires project.canvas.node.edit',
         });
       }
+      const selection = await this.resolveModelSelection(dto);
       return this.ds.transaction(async (manager) => {
-        await this.assertSourceNodeBinding(manager, dto.source_node_id!, dto.project_id!, workspaceId, true);
+        await this.assertSourceNodeBinding(
+          manager,
+          dto.source_node_id!,
+          dto.project_id!,
+          workspaceId,
+          true,
+        );
         const repo = manager.getRepository(Task);
-        return repo.save(repo.create(this.taskValues(userId, workspaceId, dto)));
+        return repo.save(repo.create(this.taskValues(userId, workspaceId, dto, selection)));
       });
     }
-    return this.tasks.save(this.tasks.create(this.taskValues(userId, workspaceId, dto)));
+    const selection = await this.resolveModelSelection(dto);
+    return this.tasks.save(this.tasks.create(this.taskValues(userId, workspaceId, dto, selection)));
   }
 
-  private taskValues(userId: string, workspaceId: string, dto: CreateTaskDto): Partial<Task> {
+  private taskValues(
+    userId: string,
+    workspaceId: string,
+    dto: CreateTaskDto,
+    selection: { model_id: string; pin: ModelRevisionPin },
+  ): Partial<Task> {
     return {
       type: dto.task_type as TaskType,
       status: 'pending',
-      model_id: dto.model_id,
+      model_id: selection.model_id,
+      model_resource_uid: selection.pin.model_resource_uid,
+      model_revision_id: selection.pin.model_revision_id,
+      rate_card_revision_id: selection.pin.rate_card_revision_id,
+      catalog_epoch: selection.pin.catalog_epoch,
+      execution_mode: this.demoMode ? 'demo' : 'live',
       workspace_id: workspaceId,
       owner_id: userId,
       project_id: dto.project_id ?? null,
@@ -90,6 +139,16 @@ export class TaskService {
       params: dto.params,
       inputs: dto.inputs ?? {},
     };
+  }
+
+  private async resolveModelSelection(
+    dto: CreateTaskDto,
+  ): Promise<{ model_id: string; pin: ModelRevisionPin }> {
+    return this.accountModels.resolveTaskPin(
+      dto.model_id,
+      dto.task_type as TaskType,
+      this.demoMode ? 'demo' : 'live',
+    );
   }
 
   async list(userId: string, q: TaskListQuery): Promise<Task[]> {
@@ -139,51 +198,7 @@ export class TaskService {
   }
 
   async retry(userId: string, workspaceId: string, id: string): Promise<Task> {
-    await this.workspaces.assertMember(userId, workspaceId);
-    const current = await this.getOrThrow(userId, id, workspaceId);
-    if (current.status !== 'failed' && current.status !== 'cancelled') {
-      throw new ForbiddenException({ code: 'CONFLICT', message: 'only failed/cancelled tasks can retry' });
-    }
-    if (current.project_id) {
-      const project = await this.projects.getOrThrow(userId, current.project_id);
-      if (project.workspace_id !== workspaceId) {
-        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'project is outside the active workspace' });
-      }
-      const mayRun = await this.authz.can(userId, 'project.task.run', 'project', current.project_id);
-      if (!mayRun) throw new ForbiddenException({ code: 'FORBIDDEN', message: 'project.task.run is required' });
-      if (current.source_node_id) {
-        const mayEdit = await this.authz.can(userId, 'project.canvas.node.edit', 'project', current.project_id);
-        if (!mayEdit) {
-          throw new ForbiddenException({ code: 'FORBIDDEN', message: 'project.canvas.node.edit is required' });
-        }
-        await this.assertSourceNodeBinding(
-          this.ds,
-          current.source_node_id,
-          current.project_id,
-          workspaceId,
-          false,
-        );
-      }
-    }
-    const rows = await this.ds.query(
-      `UPDATE canvas.tasks
-          SET status = 'queued', external_task_id = NULL, channel_id = NULL, credential_id = NULL,
-              progress = NULL, error = NULL, started_at = NULL, finished_at = NULL,
-              next_poll_at = NOW(), lease_token = NULL, lease_expires_at = NULL,
-              output_asset_ids = '{}', text_output = NULL, json_output = NULL,
-              retry_count = retry_count + 1, updated_at = NOW()
-        WHERE id = $1 AND owner_id = $2 AND workspace_id = $3
-          AND status IN ('failed', 'cancelled')
-        RETURNING *`,
-      [id, userId, workspaceId],
-    );
-    const retried = firstRow<Task>(rows);
-    if (retried) return retried;
-    const latest = await this.getOrThrow(userId, id, workspaceId);
-    if (latest.status !== 'failed' && latest.status !== 'cancelled') {
-      throw new ForbiddenException({ code: 'CONFLICT', message: 'only failed/cancelled tasks can retry' });
-    }
-    return latest;
+    return this.retryTasks.retry(userId, workspaceId, id);
   }
 
   private async assertSourceNodeBinding(
@@ -210,12 +225,24 @@ export class TaskService {
     }
   }
 
-  claimPending(limit: number, leaseMs?: number): Promise<ClaimedTask[]> {
-    return this.execution.claimPending(limit, leaseMs);
+  claimPending(
+    limit: number,
+    leaseMs?: number,
+    executionModes: Array<'live' | 'demo'> = ['live', 'demo'],
+  ): Promise<ClaimedTask[]> {
+    return this.execution.claimPending(limit, leaseMs, executionModes);
   }
 
-  claimDuePolls(limit: number, leaseMs?: number): Promise<ClaimedTask[]> {
-    return this.execution.claimDuePolls(limit, leaseMs);
+  isCatalogReady(): boolean {
+    return this.accountModels.isReady();
+  }
+
+  claimDuePolls(
+    limit: number,
+    leaseMs?: number,
+    executionModes: Array<'live' | 'demo'> = ['live'],
+  ): Promise<ClaimedTask[]> {
+    return this.execution.claimDuePolls(limit, leaseMs, executionModes);
   }
 
   startClaimed(task: ClaimedTask, leaseMs?: number): Promise<ClaimedTask | null> {
@@ -226,17 +253,36 @@ export class TaskService {
     return this.execution.renewLease(id, leaseToken, leaseMs);
   }
 
+  prepareInvokeAttempt(
+    id: string,
+    leaseToken: string,
+    logicalRequestId: string,
+  ): Promise<ClaimedTask | null> {
+    return this.execution.prepareInvokeAttempt(id, leaseToken, logicalRequestId);
+  }
+
   async saveExternalResult(
     id: string,
     leaseToken: string,
-    patch: {
-      external_task_id: string;
-      channel_id?: string;
-      credential_id?: string;
-      next_poll_at: Date;
-    },
+    patch: ExternalTaskCorrelation,
   ): Promise<boolean> {
     return this.execution.saveExternalResult(id, leaseToken, patch);
+  }
+
+  deferInvokeRecovery(id: string, leaseToken: string, nextCheckAt: Date): Promise<boolean> {
+    return this.execution.deferInvokeRecovery(id, leaseToken, nextCheckAt);
+  }
+
+  attachRecoveredWithoutLease(
+    id: string,
+    logicalRequestId: string,
+    patch: ExternalTaskCorrelation,
+  ): Promise<boolean> {
+    return this.execution.attachRecoveredWithoutLease(id, logicalRequestId, patch);
+  }
+
+  findInternal(id: string): Promise<Task | null> {
+    return this.execution.findInternal(id);
   }
 
   async releasePoll(
@@ -267,9 +313,4 @@ export class TaskService {
   ): Promise<boolean> {
     return this.execution.schedulePollRetry(id, leaseToken, code, message, nextPollAt);
   }
-}
-
-function firstRow<T>(result: unknown): T | undefined {
-  if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0])) return result[0][0] as T | undefined;
-  return Array.isArray(result) ? (result[0] as T | undefined) : undefined;
 }

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ModelInputContract, PromptDocument } from '@xgcanvas/shared-types';
 
-import { modelApi, type ParamSpec } from '../../../api/model';
+import { modelIdentityDependency } from '../../../api/model-identity';
+import { modelApi, type ParamSpec, type RichModelSummary } from '../../../api/model';
 import { defaultParamValue, ensureInputMode, isValidParamValue } from '../../../generation/input-contract-ui';
 import { buildPromptDocument } from '../../../generation/prompt-mentions';
 import type { CommandBarState, GenMode } from '../types';
@@ -10,6 +11,7 @@ export function useCommandBarState(initial: GenMode = 'image') {
   const [state, set] = useState<CommandBarState>({
     mode: initial,
     modelId: null,
+    selectedModel: null,
     inputMode: null,
     prompt: '',
     references: [],
@@ -23,7 +25,8 @@ export function useCommandBarState(initial: GenMode = 'image') {
 
   // when model changes, fetch its schema and reset params to defaults
   useEffect(() => {
-    if (!state.modelId) {
+    const selection = state.selectedModel ?? state.modelId;
+    if (!selection) {
       setSpecs([]);
       setInputContract(undefined);
       setSchemaReady(false);
@@ -31,8 +34,10 @@ export function useCommandBarState(initial: GenMode = 'image') {
     }
     let cancelled = false;
     setSchemaReady(false);
+    setSpecs([]);
+    setInputContract(undefined);
     modelApi
-      .schema(state.modelId)
+      .schema(selection)
       .then((s) => {
         if (cancelled) return;
         setSpecs(s.params);
@@ -53,15 +58,36 @@ export function useCommandBarState(initial: GenMode = 'image') {
         }
       });
     return () => { cancelled = true; };
-  }, [state.modelId]);
+  }, [
+    state.modelId,
+    state.selectedModel ? modelIdentityDependency(state.selectedModel) : '',
+  ]);
 
   const switchMode = useCallback((mode: GenMode) => {
-    set((s) => ({ ...s, mode, modelId: null, inputMode: null, references: [], params: {} }));
+    set((s) => ({
+      ...s,
+      mode,
+      modelId: null,
+      selectedModel: null,
+      inputMode: null,
+      references: [],
+      params: {},
+    }));
     setSpecs([]);
     setInputContract(undefined);
+    setSchemaReady(false);
   }, []);
 
-  const setModel = useCallback((modelId: string | null) => set((s) => ({ ...s, modelId })), []);
+  const setModel = useCallback((model: RichModelSummary | null) => {
+    setSpecs([]);
+    setInputContract(undefined);
+    setSchemaReady(false);
+    set((state) => ({
+      ...state,
+      modelId: model?.model_id ?? null,
+      selectedModel: model,
+    }));
+  }, []);
   const setInputMode = useCallback((inputMode: string) => set((s) => ({ ...s, inputMode })), []);
   const setPrompt = useCallback((prompt: string, promptDoc?: PromptDocument) =>
     set((s) => ({ ...s, prompt, promptDoc: promptDoc ?? buildPromptDocument(prompt, s.promptDoc?.mentions ?? []) })), []);
@@ -74,11 +100,13 @@ export function useCommandBarState(initial: GenMode = 'image') {
 }
 
 function reconcileParams(specs: ParamSpec[], params: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...params };
+  const next: Record<string, unknown> = {};
   for (const spec of specs) {
-    if (!isValidParamValue(spec, next[spec.field])) {
-      const def = defaultParamValue(spec);
-      if (def !== undefined) next[spec.field] = def;
+    const current = params[spec.field];
+    if (isValidParamValue(spec, current)) next[spec.field] = current;
+    else {
+      const fallback = defaultParamValue(spec);
+      if (fallback !== undefined) next[spec.field] = fallback;
     }
   }
   return next;

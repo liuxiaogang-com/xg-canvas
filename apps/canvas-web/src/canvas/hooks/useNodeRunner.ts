@@ -11,9 +11,10 @@ import {
   slotsForMode,
   type GenerationSlotView,
 } from '../../generation/input-contract-ui';
+import { selectCatalogModelParams } from '../../generation/model-params';
 import { isPromptDocument, mergeGenerationReferences } from '../../generation/prompt-mentions';
 import { getSchema } from '../../nodes/registry';
-import type { CanvasNodeData } from '../../nodes/types';
+import type { CanvasNodeData, TaskBody } from '../../nodes/types';
 import { toast } from '../../ui';
 import { useCanvasStore } from '../canvas-state';
 import {
@@ -50,6 +51,11 @@ export function useNodeRunner() {
         toast.warning('未识别的节点类型');
         return;
       }
+      if (!schema.buildTaskBody) {
+        abandonNodeSubmission(nodeId, projectId, generation);
+        toast.warning('该节点不提交生成任务');
+        return;
+      }
 
       const data = node.data as CanvasNodeData;
       let mode = String(data.mode ?? '');
@@ -60,7 +66,14 @@ export function useNodeRunner() {
       // contract may normalize an old mode after the user switches models.
       const acceptTypes = acceptTypesFromSlots(fallbackSlots);
       const upstream = resolveUpstream(nodeId, initial.nodes, initial.edges, { acceptTypes });
-      let body = schema.buildTaskBody(node.data as never, upstream);
+      let body: TaskBody;
+      try {
+        body = schema.buildTaskBody(node.data as never, upstream);
+      } catch (error) {
+        abandonNodeSubmission(nodeId, projectId, generation);
+        toast.warning((error as Error).message);
+        return;
+      }
 
       // The model contract is the authority for active slots. schema() is
       // already fetched by the inline form in normal use; failure falls back
@@ -86,6 +99,12 @@ export function useNodeRunner() {
           fallbackSlots,
           requires,
         );
+        body.params = selectCatalogModelParams(
+          modelSchema.params,
+          modelSchema.defaults,
+          data,
+          body.params,
+        );
       } catch {
         if (!isNodeSubmissionCurrent(nodeId, projectId, generation)) return;
       }
@@ -104,7 +123,7 @@ export function useNodeRunner() {
           ...body,
           project_id: projectId,
           source_node_id: nodeId,
-        } as never);
+        });
         if (!isNodeSubmissionCurrent(nodeId, projectId, generation)) {
           // A newer click won while this request was in flight. Stop wasting
           // vendor capacity, but never let this response touch the node.

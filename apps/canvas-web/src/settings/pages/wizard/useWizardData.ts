@@ -1,30 +1,47 @@
 import { useEffect, useState } from 'react';
 
-import { modelApi, providerApi } from '../../api';
-import type { ModelDefinition, Provider } from '../../types';
+import { credentialApi } from '../../api';
+import type {
+  CredentialCatalogChannel,
+  CredentialCatalogModel,
+  CredentialCatalogProvider,
+} from '../../types';
 
-/** Load the two lists the wizard needs (providers + all model definitions) once
- *  per open. The caller derives per-provider preset models from `models`. */
-export function useWizardData(open: boolean): {
-  providers: Provider[];
-  models: ModelDefinition[];
+interface WizardData {
+  providers: CredentialCatalogProvider[];
+  channels: CredentialCatalogChannel[];
+  models: CredentialCatalogModel[];
   loading: boolean;
-} {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [models, setModels] = useState<ModelDefinition[]>([]);
+  error: string | null;
+}
+
+const EMPTY_DATA = {
+  providers: [],
+  channels: [],
+  models: [],
+};
+
+/** Load the credential-scoped Catalog projection; no model-admin permission is required. */
+export function useWizardData(open: boolean): WizardData {
+  const [data, setData] = useState(EMPTY_DATA as Omit<WizardData, 'loading' | 'error'>);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
     setLoading(true);
-    Promise.all([providerApi.list(), modelApi.list(true)])
-      .then(([ps, ms]) => {
+    setError(null);
+    void credentialApi.catalog()
+      .then((view) => {
         if (!alive) return;
-        setProviders(ps);
-        setModels(ms);
+        setData({ providers: view.providers, channels: view.channels, models: view.models });
       })
-      .catch(() => undefined)
+      .catch((reason: unknown) => {
+        if (!alive) return;
+        setData(EMPTY_DATA);
+        setError(reason instanceof Error ? reason.message : '加载接入目录失败');
+      })
       .finally(() => {
         if (alive) setLoading(false);
       });
@@ -33,5 +50,5 @@ export function useWizardData(open: boolean): {
     };
   }, [open]);
 
-  return { providers, models, loading };
+  return { ...data, loading, error };
 }

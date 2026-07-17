@@ -20,7 +20,6 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   private dispatching = false;
   private readonly concurrency: number;
   private readonly enabled: boolean;
-  private readonly demoMode: boolean;
   private readonly leaseMs: number;
 
   constructor(
@@ -32,7 +31,6 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   ) {
     this.concurrency = positiveInteger(config, 'TASK_CONCURRENCY', DEFAULT_CONCURRENCY, 1, 128);
     this.enabled = config.get<string>('TASK_RUNNER_ENABLED', 'true') === 'true';
-    this.demoMode = config.get<string>('DEMO_MODE', 'false') === 'true';
     this.leaseMs = positiveInteger(config, 'TASK_LEASE_MS', DEFAULT_LEASE_MS, 30_000, 3_600_000);
   }
 
@@ -42,10 +40,11 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.tickTimer = setInterval(() => this.tick().catch((e) => this.logger.error(e)), TICK_MS);
-    this.pollTimer = setInterval(() => this.pollRunning().catch((e) => this.logger.error(e)), POLL_MS);
-    this.logger.log(
-      `TaskRunner started (concurrency=${this.concurrency}${this.demoMode ? ', demo=true' : ''})`,
+    this.pollTimer = setInterval(
+      () => this.pollRunning().catch((e) => this.logger.error(e)),
+      POLL_MS,
     );
+    this.logger.log(`TaskRunner started (concurrency=${this.concurrency})`);
   }
 
   onModuleDestroy(): void {
@@ -54,10 +53,13 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async tick(): Promise<void> {
-    const claimed = await this.claimWithinCapacity((slots) => this.tasks.claimPending(slots, this.leaseMs));
+    if (!this.tasks.isCatalogReady()) return;
+    const claimed = await this.claimWithinCapacity((slots) =>
+      this.tasks.claimPending(slots, this.leaseMs, ['live', 'demo']),
+    );
     if (claimed.length > 0) {
-      const runner = this.demoMode ? this.mockExecutor : this.executor;
       for (const t of claimed) {
+        const runner = t.execution_mode === 'demo' ? this.mockExecutor : this.executor;
         this.withHeartbeat(t, (signal) => runner.run(t, signal))
           .catch((e) => this.logger.error(`task ${t.id} crashed: ${(e as Error).message}`))
           .finally(() => {
@@ -68,7 +70,10 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async pollRunning(): Promise<void> {
-    const due = await this.claimWithinCapacity((slots) => this.tasks.claimDuePolls(slots, this.leaseMs));
+    if (!this.tasks.isCatalogReady()) return;
+    const due = await this.claimWithinCapacity((slots) =>
+      this.tasks.claimDuePolls(slots, this.leaseMs, ['live']),
+    );
     for (const t of due) {
       this.withHeartbeat(t, (signal) => this.poller.pollOne(t, signal))
         .catch((e) => this.logger.error(`poll ${t.id} crashed: ${(e as Error).message}`))
@@ -101,18 +106,21 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const controller = new AbortController();
     let renewing = false;
-    const timer = setInterval(async () => {
-      if (renewing || controller.signal.aborted) return;
-      renewing = true;
-      try {
-        const held = await this.tasks.renewLease(task.id, task.lease_token, this.leaseMs);
-        if (!held) controller.abort(new Error('task lease lost'));
-      } catch (error) {
-        controller.abort(error);
-      } finally {
-        renewing = false;
-      }
-    }, Math.max(5_000, Math.min(10_000, Math.floor(this.leaseMs / 3))));
+    const timer = setInterval(
+      async () => {
+        if (renewing || controller.signal.aborted) return;
+        renewing = true;
+        try {
+          const held = await this.tasks.renewLease(task.id, task.lease_token, this.leaseMs);
+          if (!held) controller.abort(new Error('task lease lost'));
+        } catch (error) {
+          controller.abort(error);
+        } finally {
+          renewing = false;
+        }
+      },
+      Math.max(5_000, Math.min(10_000, Math.floor(this.leaseMs / 3))),
+    );
 
     try {
       await work(controller.signal);

@@ -1,0 +1,19 @@
+version: "1.0"
+provider_slug: bailian
+channels:
+  - resource_uid: d6864387-1a77-4063-90c9-1a1bb068dc2f
+    revision: 1
+    slug: bailian-openai-compat
+    display_name: 百炼 OpenAI 兼容 API
+    invocation_method: http
+    adapter_keys:
+      - openai-compat
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  - resource_uid: 6dbaf829-4ddd-444f-bf10-31d0e8b73c8e
+    revision: 1
+    slug: bailian-dashscope-native
+    display_name: 百炼 DashScope 原生 API
+    invocation_method: http
+    adapter_keys:
+      - bailian-dashscope
+    base_url: https://dashscope.aliyuncs.com/api/v1

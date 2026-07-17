@@ -13,7 +13,7 @@ CREATE TABLE canvas.conversations (
   project_id    UUID REFERENCES canvas.projects(id) ON DELETE SET NULL,
   owner_id      UUID NOT NULL REFERENCES canvas.users(id) ON DELETE CASCADE,
   title         VARCHAR(200) NOT NULL DEFAULT '新对话',
-  model_id      VARCHAR(120),
+  model_id      VARCHAR(200),
   system_prompt TEXT,
   params        JSONB NOT NULL DEFAULT '{}',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -19,8 +19,8 @@ describe('presentLibraryEntry', () => {
       provider_refs: [
         {
           binding_id: 'binding-1',
-          provider: 'bailian',
-          channel_id: 'channel-secret',
+          provider_resource_uid: 'provider-resource',
+          channel_resource_uid: 'channel-secret',
           credential_id: 'credential-secret',
           external_ref_id: 'voice-resource-123',
           status: 'ready',
@@ -34,14 +34,14 @@ describe('presentLibraryEntry', () => {
 
     expect(result.provider_refs[0]).toEqual({
       binding_id: 'binding-1',
-      provider: 'bailian',
+      provider_resource_uid: 'provider-resource',
       external_ref_id: 'voi***123',
       sample_asset_id: undefined,
       status: 'ready',
       verified_at: undefined,
     });
     expect(result.provider_refs[0]).not.toHaveProperty('credential_id');
-    expect(result.provider_refs[0]).not.toHaveProperty('channel_id');
+    expect(result.provider_refs[0]).not.toHaveProperty('channel_resource_uid');
     expect(result.provider_refs[0]).not.toHaveProperty('verified_params');
     expect(result).not.toHaveProperty('deleted_at');
     expect(result.created_at).toBe('2026-01-02T00:00:00.000Z');

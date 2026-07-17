@@ -1,136 +1,115 @@
-/* Feature model config — maps feature scenarios (AI analysis, agent, etc.)
- * to specific model pools with primary/fallback resolution.
- * Editing opens in a right-side Drawer (buerguo nav-004 / ui-041). */
+/* Feature model config — each feature owns one ordered Model Resource chain.
+ * Index 0 is preferred; later entries are tried in order when unavailable. */
 import { useEffect, useMemo, useState } from 'react';
-import { SettingsPage, DataTable, BoolBadge, Badge, Loading, ErrorNote, Field } from '../components/kit';
-import type { Column } from '../components/kit';
-import { Select, Drawer } from '../../ui';
-import { featureConfigApi } from '../api';
-import type { FeatureConfig } from '../types';
-import { modelApi } from '../../api/model';
-import type { RichModelSummary } from '../../api/model';
 
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+import { Drawer } from '../../ui';
+import { featureConfigApi } from '../api';
+import { Badge, BoolBadge, DataTable, ErrorNote, Field, Loading, SettingsPage } from '../components/kit';
+import type { Column } from '../components/kit';
+import type { FeatureConfig, FeatureConfigModelOption } from '../types';
+import {
+  incompatibleFeatureModelUids,
+  supportsFeatureTaskType,
+} from '../feature-model-compatibility';
+import { moveResourceUid, toggleResourceUid } from '../feature-model-order';
+
+function errMsg(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export default function FeatureConfigPage() {
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
-  const [models, setModels] = useState<RichModelSummary[]>([]);
+  const [models, setModels] = useState<FeatureConfigModelOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<FeatureConfig | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Edit form state
-  const [formModelIds, setFormModelIds] = useState<string[]>([]);
-  const [formPrimary, setFormPrimary] = useState<string | null>(null);
-  const [formFallback, setFormFallback] = useState<string | null>(null);
+  const [orderedResourceUids, setOrderedResourceUids] = useState<string[]>([]);
   const [formEnabled, setFormEnabled] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [f, m] = await Promise.all([
-          featureConfigApi.list(),
-          modelApi.list(),
-        ]);
+    void Promise.all([featureConfigApi.list(), featureConfigApi.modelOptions()])
+      .then(([nextFeatures, nextModels]) => {
         if (!alive) return;
-        setFeatures(f);
-        // Only show text models — AI analysis, agent, etc. all need gen.text.
-        // Future features with other task types can make this per-feature-key.
-        setModels(m.filter((x) => x.task_types?.includes('gen.text')));
-      } catch (e: unknown) {
-        if (alive) setError(errMsg(e));
-      } finally {
+        setFeatures(nextFeatures);
+        setModels(nextModels);
+      })
+      .catch((reason: unknown) => {
+        if (alive) setError(errMsg(reason));
+      })
+      .finally(() => {
         if (alive) setLoading(false);
-      }
-    })();
+      });
     return () => { alive = false; };
   }, []);
 
-  const openEdit = (f: FeatureConfig) => {
-    setEditing(f);
-    setFormModelIds([...f.model_ids]);
-    setFormPrimary(f.primary_model_id);
-    setFormFallback(f.fallback_model_id);
-    setFormEnabled(f.enabled);
-  };
+  const modelByResourceUid = useMemo(
+    () => new Map(models.map((model) => [model.resource_uid, model])),
+    [models],
+  );
+  const compatibleModels = useMemo(
+    () => editing
+      ? models.filter((model) => supportsFeatureTaskType(model, editing.required_task_type))
+      : [],
+    [editing, models],
+  );
+  const addableCompatibleModels = useMemo(
+    () => compatibleModels.filter(
+      (model) => !orderedResourceUids.includes(model.resource_uid),
+    ),
+    [compatibleModels, orderedResourceUids],
+  );
+  const incompatibleSelectedUids = useMemo(
+    () => editing
+      ? incompatibleFeatureModelUids(
+          orderedResourceUids,
+          models,
+          editing.required_task_type,
+        )
+      : [],
+    [editing, models, orderedResourceUids],
+  );
 
-  const closeEdit = () => {
-    setEditing(null);
+  const openEdit = (feature: FeatureConfig) => {
+    setEditing(feature);
+    setOrderedResourceUids([...feature.model_resource_uids]);
+    setFormEnabled(feature.enabled);
   };
 
   const saveEdit = async () => {
     if (!editing) return;
     setSaving(true);
+    setError(null);
     try {
       const updated = await featureConfigApi.upsert(editing.feature_key, {
         feature_key: editing.feature_key,
         display_name: editing.display_name,
-        model_ids: formModelIds,
-        primary_model_id: formPrimary || null,
-        fallback_model_id: formFallback || null,
+        description: editing.description ?? undefined,
+        model_resource_uids: orderedResourceUids,
         enabled: formEnabled,
       });
-      setFeatures((prev) =>
-        prev.map((f) => (f.feature_key === editing.feature_key ? updated : f)),
-      );
-      closeEdit();
-    } catch (e: unknown) {
-      setError(errMsg(e));
+      setFeatures((current) => current.map((feature) => (
+        feature.feature_key === editing.feature_key ? updated : feature
+      )));
+      setEditing(null);
+    } catch (reason: unknown) {
+      setError(errMsg(reason));
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleModel = (modelId: string) => {
-    setFormModelIds((prev) => {
-      const next = prev.includes(modelId) ? prev.filter((m) => m !== modelId) : [...prev, modelId];
-      const nextSet = new Set(next);
-      setFormPrimary((p) => (p && !nextSet.has(p) ? null : p));
-      setFormFallback((f) => (f && !nextSet.has(f) ? null : f));
-      return next;
-    });
-  };
-
-  const modelOptions = useMemo(
-    () =>
-      models.map((m) => ({
-        value: m.id,
-        label: `${m.provider.display_name} / ${m.display_name}`,
-      })),
-    [models],
-  );
-
-  const poolOptions = useMemo(
-    () => [
-      { value: '', label: '（无）' },
-      ...formModelIds.map((mid) => {
-        const m = models.find((x) => x.id === mid);
-        return {
-          value: mid,
-          label: m ? `${m.provider.display_name} / ${m.display_name}` : mid,
-        };
-      }),
-    ],
-    [formModelIds, models],
-  );
-
   const columns: Column<FeatureConfig>[] = [
     {
       key: 'feature',
       header: '功能',
-      render: (r) => (
+      render: (feature) => (
         <div>
-          <div className="set-cell__title">{r.display_name}</div>
-          <div className="set-cell__sub">{r.feature_key}</div>
-          {r.description ? (
-            <div className="set-cell__desc">{r.description}</div>
-          ) : null}
+          <div className="set-cell__title">{feature.display_name}</div>
+          <div className="set-cell__sub">{feature.feature_key}</div>
+          <Badge tone="info">要求 {feature.required_task_type}</Badge>
+          {feature.description ? <div className="set-cell__desc">{feature.description}</div> : null}
         </div>
       ),
     },
@@ -138,53 +117,23 @@ export default function FeatureConfigPage() {
       key: 'enabled',
       header: '状态',
       width: 80,
-      render: (r) => <BoolBadge value={r.enabled} />,
+      render: (feature) => <BoolBadge value={feature.enabled} />,
     },
     {
-      key: 'primary',
-      header: '首选模型',
-      render: (r) => {
-        const m = models.find((x) => x.id === r.primary_model_id);
-        return m ? (
-          <span>
-            {m.provider.display_name} / {m.display_name}
-          </span>
-        ) : (
-          <span className="set-cell__muted">{r.primary_model_id ?? '—'}</span>
-        );
-      },
-    },
-    {
-      key: 'fallback',
-      header: '回退模型',
-      render: (r) => {
-        const m = models.find((x) => x.id === r.fallback_model_id);
-        return m ? (
-          <span>
-            {m.provider.display_name} / {m.display_name}
-          </span>
-        ) : (
-          <span className="set-cell__muted">{r.fallback_model_id ?? '—'}</span>
-        );
-      },
-    },
-    {
-      key: 'pool',
-      header: '候选池',
-      render: (r) => (
+      key: 'models',
+      header: '有序模型链路',
+      render: (feature) => (
         <div className="set-tags">
-          {r.model_ids.length === 0 ? (
-            <span className="set-cell__muted">空</span>
-          ) : (
-            r.model_ids.map((mid) => {
-              const m = models.find((x) => x.id === mid);
-              return (
-                <Badge key={mid} tone="default">
-                  {m ? m.display_name : mid}
-                </Badge>
-              );
-            })
-          )}
+          {feature.model_resource_uids.length === 0 ? (
+            <span className="set-cell__muted">未配置</span>
+          ) : feature.model_resource_uids.map((resourceUid, index) => {
+            const model = modelByResourceUid.get(resourceUid);
+            return (
+              <Badge key={resourceUid} tone={index === 0 ? 'accent' : 'default'}>
+                {index + 1}. {model?.display_name ?? resourceUid}
+              </Badge>
+            );
+          })}
         </div>
       ),
     },
@@ -193,90 +142,133 @@ export default function FeatureConfigPage() {
   return (
     <SettingsPage
       title="功能配置"
-      description="为各功能场景（AI 分析、Agent 等）指定可用模型池及首选/回退链路。只显示已配置凭证的模型。"
+      description="按顺序绑定模型资源：第一个是首选，后续模型按顺序回退。"
     >
-      {loading ? (
-        <Loading />
-      ) : error ? (
+      {loading ? <Loading /> : error && features.length === 0 ? (
         <ErrorNote message={error} />
       ) : (
-        <DataTable
-          columns={columns}
-          rows={features}
-          rowKey={(r) => r.feature_key}
-          onRowClick={(r) => openEdit(r)}
-          empty="暂无功能配置"
-        />
+        <>
+          {error ? <ErrorNote message={error} /> : null}
+          <DataTable
+            columns={columns}
+            rows={features}
+            rowKey={(feature) => feature.feature_key}
+            onRowClick={openEdit}
+            empty="暂无功能配置"
+          />
+        </>
       )}
 
       <Drawer
-        open={!!editing}
-        onClose={closeEdit}
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
         title={editing ? `编辑：${editing.display_name}` : undefined}
         side="right"
-        width={480}
+        width={520}
         footer={
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn btn--primary" onClick={saveEdit} disabled={saving}>
+            <button className="btn" onClick={() => setEditing(null)} disabled={saving}>取消</button>
+            <button
+              className="btn btn--primary"
+              onClick={saveEdit}
+              disabled={saving || incompatibleSelectedUids.length > 0}
+            >
               {saving ? '保存中…' : '保存'}
-            </button>
-            <button className="btn" onClick={closeEdit} disabled={saving}>
-              取消
             </button>
           </div>
         }
       >
-        {editing && (
+        {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="set-cell__desc">
+              此功能固定要求 <Badge tone="info">{editing.required_task_type}</Badge>；
+              只能绑定当前 Model Catalog Revision 声明支持该任务类型的模型。
+            </div>
+
+            {incompatibleSelectedUids.length > 0 ? (
+              <ErrorNote
+                message={`已有 ${incompatibleSelectedUids.length} 个绑定不再兼容 ${editing.required_task_type}，请先移除后再保存。`}
+              />
+            ) : null}
+
             <Field label="启用">
               <label className="set-filter-check">
                 <input
                   type="checkbox"
                   checked={formEnabled}
-                  onChange={(e) => setFormEnabled(e.target.checked)}
+                  onChange={(event) => setFormEnabled(event.target.checked)}
                 />
                 {formEnabled ? '已启用' : '已停用'}
               </label>
             </Field>
 
-            <Field label="候选模型池" hint="勾选该功能可用的模型（仅显示有凭证的模型）">
+            <Field label="模型优先级" hint="拖动替代方案暂未开放；使用上下按钮调整精确顺序。">
               <div className="set-model-pool">
-                {modelOptions.length === 0 ? (
-                  <p className="set-cell__muted">暂无可用模型，请先配置凭证</p>
-                ) : (
-                  modelOptions.map((opt) => (
-                    <label key={opt.value} className="set-filter-check">
-                      <input
-                        type="checkbox"
-                        checked={formModelIds.includes(opt.value)}
-                        onChange={() => toggleModel(opt.value)}
-                      />
-                      {opt.label}
-                    </label>
-                  ))
-                )}
+                {orderedResourceUids.length === 0 ? (
+                  <p className="set-cell__muted">尚未选择模型</p>
+                ) : orderedResourceUids.map((resourceUid, index) => {
+                  const model = modelByResourceUid.get(resourceUid);
+                  return (
+                    <div key={resourceUid} className="set-filter-check" style={{ gap: 8 }}>
+                      <Badge tone={index === 0 ? 'accent' : 'default'}>{index + 1}</Badge>
+                      <span style={{ flex: 1 }}>
+                        {model ? `${model.provider.display_name} / ${model.display_name}` : resourceUid}
+                      </span>
+                      {!model || !supportsFeatureTaskType(model, editing.required_task_type) ? (
+                        <Badge tone="danger">不兼容 {editing.required_task_type}</Badge>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        disabled={index === 0}
+                        onClick={() => setOrderedResourceUids((current) => moveResourceUid(current, resourceUid, -1))}
+                        aria-label="上移"
+                      >↑</button>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        disabled={index === orderedResourceUids.length - 1}
+                        onClick={() => setOrderedResourceUids((current) => moveResourceUid(current, resourceUid, 1))}
+                        aria-label="下移"
+                      >↓</button>
+                      <button
+                        type="button"
+                        className="btn btn--danger btn--sm"
+                        onClick={() => setOrderedResourceUids((current) => toggleResourceUid(current, resourceUid))}
+                      >移除</button>
+                    </div>
+                  );
+                })}
               </div>
             </Field>
 
-            <Field label="首选模型" hint="优先使用此模型；不可用时回退">
-              <Select<string>
-                value={formPrimary ?? ''}
-                options={poolOptions}
-                onChange={(v) => setFormPrimary(v || null)}
-                placeholder="选择首选模型"
-              />
-            </Field>
-
-            <Field label="回退模型" hint="首选模型不可用时的备选">
-              <Select<string>
-                value={formFallback ?? ''}
-                options={poolOptions}
-                onChange={(v) => setFormFallback(v || null)}
-                placeholder="选择回退模型（可选）"
-              />
+            <Field
+              label="添加模型"
+              hint={`仅显示支持 ${editing.required_task_type} 的模型；绑定使用稳定 model_resource_uid。`}
+            >
+              <div className="set-model-pool">
+                {addableCompatibleModels.length === 0 ? (
+                  <p className="set-cell__muted">
+                    没有更多支持 {editing.required_task_type} 的模型
+                  </p>
+                ) : addableCompatibleModels.map((model) => (
+                    <label key={model.resource_uid} className="set-filter-check">
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => setOrderedResourceUids((current) => toggleResourceUid(current, model.resource_uid))}
+                      />
+                      <span>
+                        {model.provider.display_name} / {model.display_name}
+                        <span className="set-cell__sub"> {model.model_id}</span>
+                      </span>
+                      {!model.enabled ? <Badge tone="warning">未启用</Badge> : null}
+                    </label>
+                  ))}
+              </div>
             </Field>
           </div>
-        )}
+        ) : null}
       </Drawer>
     </SettingsPage>
   );

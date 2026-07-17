@@ -19,6 +19,8 @@ export function mapVendorError(
           retryable: e.retryable,
           vendor: e.vendor,
           httpStatus: e.httpStatus,
+          dispatch_outcome: e.dispatch_outcome,
+          accepted_result: e.accepted_result,
         });
       }
     }

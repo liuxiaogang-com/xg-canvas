@@ -6,17 +6,24 @@ import {
   type UnifiedRequest,
   type UnifiedResponse,
 } from '@xgcanvas/adapters-contract';
-import { ERROR_CODES, type TaskType } from '@xgcanvas/shared-types';
+import { BUILTIN_ADAPTER_CAPABILITIES, ERROR_CODES } from '@xgcanvas/shared-types';
+import { readBoundedText } from '../../../common/http/bounded-body';
+import { guardedFetch } from '../../../common/http/guarded-outbound';
 
 import { httpJson } from '../_shared/http-client';
 import { mapVendorError } from '../_shared/error-mapper';
 import { buildOpenAIChatRequest } from './request-builder';
 import { parseOpenAIChatResponse } from './response-parser';
 import type { OpenAIChatResponse, OpenAIChatStreamChunk, OpenAIUsage } from './types';
+import { normalizeOpenAIUsage } from './usage';
 
 const DEFAULT_BASE = 'https://api.openai.com/v1';
 
-const CAPS: readonly TaskType[] = ['gen.text'];
+const CAPS = BUILTIN_ADAPTER_CAPABILITIES['openai-compat'];
+const MAX_STREAM_ERROR_BYTES = 64 * 1024;
+const MAX_STREAM_BYTES = 16 * 1024 * 1024;
+const MAX_STREAM_BUFFER_CHARS = 1024 * 1024;
+const MAX_STREAM_TEXT_CHARS = 8 * 1024 * 1024;
 
 export class OpenAICompatAdapter implements ProviderAdapter {
   readonly key = 'openai-compat';
@@ -48,7 +55,7 @@ export class OpenAICompatAdapter implements ProviderAdapter {
 
     let res: Response;
     try {
-      res = await fetch(`${base}/chat/completions`, {
+      res = await guardedFetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
         body: JSON.stringify(body),
@@ -58,7 +65,9 @@ export class OpenAICompatAdapter implements ProviderAdapter {
       throw mapVendorError(e);
     }
     if (!res.ok || !res.body) {
-      const detail = await res.text().catch(() => '');
+      const detail = await readBoundedText(res, MAX_STREAM_ERROR_BYTES).catch(
+        () => 'response body exceeded the error limit',
+      );
       throw new AdapterError({
         code:
           res.status === 401 || res.status === 403
@@ -76,6 +85,7 @@ export class OpenAICompatAdapter implements ProviderAdapter {
     const decoder = new TextDecoder();
     let buf = '';
     let fullText = '';
+    let totalBytes = 0;
     let usage: OpenAIUsage | undefined;
 
     // try/finally so the vendor stream is released on ANY exit — normal end, parse
@@ -85,7 +95,14 @@ export class OpenAICompatAdapter implements ProviderAdapter {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_STREAM_BYTES) {
+          throw streamTooLarge(`stream exceeded ${MAX_STREAM_BYTES} bytes`);
+        }
         buf += decoder.decode(value, { stream: true });
+        if (buf.length > MAX_STREAM_BUFFER_CHARS && !buf.includes('\n')) {
+          throw streamTooLarge(`stream frame exceeded ${MAX_STREAM_BUFFER_CHARS} characters`);
+        }
         const lines = buf.split('\n');
         buf = lines.pop() ?? '';
         for (const raw of lines) {
@@ -103,6 +120,9 @@ export class OpenAICompatAdapter implements ProviderAdapter {
           const delta = json.choices?.[0]?.delta;
           if (delta?.content) {
             fullText += delta.content;
+            if (fullText.length > MAX_STREAM_TEXT_CHARS) {
+              throw streamTooLarge(`stream text exceeded ${MAX_STREAM_TEXT_CHARS} characters`);
+            }
             yield { text_delta: delta.content };
           }
           if (delta?.reasoning_content) yield { reasoning_delta: delta.reasoning_content };
@@ -118,12 +138,19 @@ export class OpenAICompatAdapter implements ProviderAdapter {
         status: 'succeeded',
         text: fullText,
         assets: [],
-        usage: usage
-          ? { input_tokens: usage.prompt_tokens, output_tokens: usage.completion_tokens }
-          : undefined,
+        usage: usage ? normalizeOpenAIUsage(usage) : undefined,
       },
     };
   }
+}
+
+function streamTooLarge(message: string): AdapterError {
+  return new AdapterError({
+    code: ERROR_CODES.VENDOR_REJECTED,
+    message,
+    retryable: false,
+    dispatch_outcome: 'outcome_unknown',
+  });
 }
 
 function readApiKey(ctx: InvokeCtx): string {

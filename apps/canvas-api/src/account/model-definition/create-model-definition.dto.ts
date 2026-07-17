@@ -1,27 +1,29 @@
+import { CATALOG_VISIBILITIES, MAX_MODEL_ID_LENGTH } from '@xgcanvas/shared-types';
+import type { ModelInputContract } from '@xgcanvas/shared-types';
 import {
-  IsString,
-  IsOptional,
-  IsBoolean,
-  IsInt,
   IsArray,
+  ArrayMinSize,
+  IsBoolean,
+  IsIn,
+  IsInt,
   IsObject,
+  IsOptional,
+  IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import type { ModelInputContract } from '@xgcanvas/shared-types';
-
 import { IsModelInputContract } from './is-model-input-contract.decorator';
 
 export class CreateModelDefinitionDto {
   @IsUUID()
-  provider_id: string;
+  provider_resource_uid: string;
 
   @IsString()
-  @MaxLength(200)
+  @MaxLength(MAX_MODEL_ID_LENGTH)
   model_id: string;
 
   @IsString()
-  @MaxLength(200)
+  @MaxLength(MAX_MODEL_ID_LENGTH)
   provider_model_id: string;
 
   @IsString()
@@ -51,26 +53,29 @@ export class CreateModelDefinitionDto {
   capabilities?: string[];
 
   @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  invocation_mode?: string;
+  @IsIn(['sync', 'async', 'stream'])
+  invocation_mode?: 'sync' | 'async' | 'stream';
 
   @IsOptional()
   @IsBoolean()
   supports_streaming?: boolean;
 
-  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  adapter_key: string;
+
   @IsArray()
-  @IsString({ each: true })
-  allowed_channel_ids?: string[];
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  allowed_channel_resource_uids: string[];
 
   @IsOptional()
   @IsObject()
-  param_schema?: Record<string, any>;
+  param_schema?: Record<string, unknown>;
 
   @IsOptional()
   @IsArray()
-  param_constraints?: any[];
+  param_constraints?: unknown[];
 
   @IsOptional()
   @IsObject()
@@ -79,24 +84,23 @@ export class CreateModelDefinitionDto {
 
   @IsOptional()
   @IsObject()
-  limits?: Record<string, any>;
+  poll_policy?: Record<string, unknown>;
 
   @IsOptional()
   @IsObject()
-  pricing?: Record<string, any>;
+  limits?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  pricing?: Record<string, unknown> | null;
 
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
 
   @IsOptional()
-  @IsBoolean()
-  deprecated?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  adapter_key?: string;
+  @IsIn(CATALOG_VISIBILITIES)
+  visibility?: 'public' | 'internal' | 'hidden';
 
   @IsOptional()
   @IsString()

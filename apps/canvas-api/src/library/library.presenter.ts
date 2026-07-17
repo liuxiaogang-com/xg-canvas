@@ -30,7 +30,7 @@ export function presentLibraryEntry(entry: LibraryEntryEntity): PublicLibraryEnt
 function presentProviderRef(ref: LibraryProviderRef): PublicLibraryProviderRef {
   return {
     binding_id: ref.binding_id,
-    provider: ref.provider,
+    provider_resource_uid: ref.provider_resource_uid,
     external_ref_id: maskExternalRef(ref.external_ref_id),
     sample_asset_id: ref.sample_asset_id,
     status: ref.status ?? 'failed',

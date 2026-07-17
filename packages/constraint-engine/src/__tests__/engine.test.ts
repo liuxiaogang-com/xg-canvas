@@ -3,7 +3,7 @@ import { evaluateConstraints, reconcileParams } from '../engine';
 import type { ModelParamSchema, ParamConstraint } from '../types';
 
 // ============================================================
-// 测试用 Schema：模拟豆包 Seedance 视频生成
+// 测试用 Schema：模拟通用视频生成参数
 // ============================================================
 const seedanceSchema: ModelParamSchema = {
   version: '1.0',

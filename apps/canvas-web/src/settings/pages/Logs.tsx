@@ -170,10 +170,24 @@ export default function Logs() {
 
                 <Section title="概要">
                   <div className="log-detail__kv">
+                    <span>逻辑请求</span>
+                    <code>{sel.logical_request_id ?? '—'}</code>
+                    <span>尝试序号</span>
+                    <span>{sel.attempt_no ?? '—'}</span>
                     <span>模型</span>
                     <span>{sel.model_id ?? '—'}</span>
+                    <span>模型资源</span>
+                    <code>{sel.model_resource_uid ?? '—'}</code>
+                    <span>模型修订</span>
+                    <code>{sel.model_revision_id ?? '—'}</code>
+                    <span>费率修订</span>
+                    <code>{sel.rate_card_revision_id ?? '—'}</code>
+                    <span>目录 Epoch</span>
+                    <span>{sel.catalog_epoch ?? '—'}</span>
                     <span>供应商</span>
                     <span>{sel.provider_slug ?? '—'}</span>
+                    <span>渠道资源</span>
+                    <code>{sel.channel_resource_uid ?? '—'}</code>
                     <span>凭证</span>
                     <span>{sel.credential_label ?? '—'}</span>
                     <span>延迟</span>

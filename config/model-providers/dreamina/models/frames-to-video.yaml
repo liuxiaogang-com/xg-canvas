@@ -1,0 +1,54 @@
+version: "1.0"
+provider_slug: dreamina
+models:
+  - resource_uid: 333cff34-3bf7-48fe-8421-84f9ffab04c5
+    revision: 1
+    model_id: dreamina:frames2video
+    provider_model_id: frames2video
+    display_name: 即梦首尾帧视频
+    description: 首帧+尾帧驱动的视频生成
+    task_types:
+      - gen.video
+    capabilities:
+      - first_last_frame
+    invocation_mode: async
+    adapter_key: dreamina-cli
+    allowed_channel_slugs:
+      - dreamina-cli
+    tags:
+      - 视频
+      - 首尾帧
+    input_contract:
+      default_mode: first_last_frame
+      modes:
+        - id: first_last_frame
+          label: 首尾帧
+          required_slots:
+            - slot: first_frame
+              type: image
+              min: 1
+              max: 1
+            - slot: last_frame
+              type: image
+              min: 1
+              max: 1
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [duration, model_version], ui_zone: params }
+      properties:
+        prompt: { type: text, label: 提示词 }
+        duration: { type: number, label: 时长（秒）, min: 4, max: 15 }
+        model_version:
+          type: enum
+          label: 模型版本
+          enum_options:
+            - { value: seedance1.5pro, label: Seedance 1.5 Pro }
+            - { value: seedance2.0, label: Seedance 2.0 }
+            - { value: seedance2.0fast, label: Seedance 2.0 Fast }
+            - { value: seedance2.0_vip, label: Seedance 2.0 VIP }
+            - { value: seedance2.0fast_vip, label: Seedance 2.0 Fast VIP }
+            - { value: seedance2.0mini, label: Seedance 2.0 Mini }
+      required: [prompt]
+      defaults: { duration: 5, model_version: seedance2.0_vip }

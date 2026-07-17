@@ -66,7 +66,7 @@ export function mapVideoReferences(
 }
 
 function imageLike(refs: GenerationReference[] | undefined): GenerationReference[] {
-  return (refs ?? []).filter((r) => r.type === undefined || r.type === 'image' || r.type === 'image_list');
+  return (refs ?? []).filter((r) => r.type === 'image' || r.type === 'image_list');
 }
 
 function remapFirst(refs: GenerationReference[], slot: string): GenerationReference[] {

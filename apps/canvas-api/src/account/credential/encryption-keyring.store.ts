@@ -211,7 +211,7 @@ export class EncryptionKeyringStore {
     const rows = await runner.query(
       `SELECT EXISTS (
          SELECT 1 FROM account.credentials
-          WHERE encrypted_payload IS NOT NULL OR refresh_token_encrypted IS NOT NULL
+          WHERE encrypted_payload IS NOT NULL
          UNION ALL
          SELECT 1 FROM account.system_settings WHERE encrypted_payload IS NOT NULL
        ) AS present`,
@@ -227,8 +227,6 @@ export class EncryptionKeyringStore {
       `SELECT DISTINCT get_byte(payload, 0) AS key_number
        FROM (
          SELECT encrypted_payload AS payload FROM account.credentials
-         UNION ALL
-         SELECT refresh_token_encrypted AS payload FROM account.credentials
          UNION ALL
          SELECT encrypted_payload AS payload FROM account.system_settings
        ) encrypted

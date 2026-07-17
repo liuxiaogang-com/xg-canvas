@@ -1,12 +1,12 @@
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { FeatureConfigModule } from '../account/feature-config/feature-config.module';
 import { BillingModule } from '../billing/billing.module';
 import { RequestLog } from './request-log.entity';
 import { RequestLogController } from './request-log.controller';
 import { RequestLogService } from './request-log.service';
 import { RequestLogAnalysisService } from './request-log-analysis.service';
+import { RequestLogReconcilerService } from './request-log-reconciler.service';
 
 /**
  * Global so any service (invoke / chat / validate / admin) can record a request
@@ -15,9 +15,9 @@ import { RequestLogAnalysisService } from './request-log-analysis.service';
  */
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([RequestLog]), BillingModule, FeatureConfigModule],
+  imports: [TypeOrmModule.forFeature([RequestLog]), BillingModule],
   controllers: [RequestLogController],
-  providers: [RequestLogService, RequestLogAnalysisService],
+  providers: [RequestLogService, RequestLogAnalysisService, RequestLogReconcilerService],
   exports: [RequestLogService],
 })
 export class RequestLogModule {}

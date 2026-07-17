@@ -1,49 +1,30 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import {
-  defineModel,
-  type ModelManifestEntry,
-  type ModelRegistryEntry,
-} from '@xgcanvas/adapters-contract';
-import {
-  canonicaliseCapability,
-  canonicaliseTaskType,
-  type Capability,
-  type TaskType,
-} from '@xgcanvas/shared-types';
-
+import { loadCatalogBundle } from '@xgcanvas/model-catalog';
+import * as path from 'node:path';
+import { DataSource, type EntityManager } from 'typeorm';
 import { AdapterRegistry } from '../adapters/registry';
-import { ConfigSyncService } from '../config-sync/config-sync.service';
-import { ModelDefinition } from '../model-definition/model-definition.entity';
-import { parseOptionalModelInputContract } from '../model-definition/model-input-contract.schema';
+import { CatalogRuntimeState } from '../catalog/catalog.entities';
+import { CatalogImportService } from '../catalog/catalog-import.service';
+import { resolveConfigRoot } from '../catalog/config-root';
 import { RedisKeys, RedisService } from '../redis';
-import {
-  validateProviderFile,
-  type ProviderFile,
-  type ValidationFailure,
-} from './manifest-validator';
 import { RegistryService } from './registry.service';
-import {
-  loadProviderFiles,
-  loadTemplates,
-  resolveConfigRoot,
-  resolveSchemaWithTemplate,
-} from './yaml-loader';
-import type { ReloadReport, RegistrySnapshot } from './types';
+import { RegistrySnapshotFactory } from './registry-snapshot.factory';
+import type { ReloadReport } from './types';
 
 @Injectable()
 export class RegistryBootstrapService implements OnModuleInit {
   private readonly logger = new Logger(RegistryBootstrapService.name);
+  private operationTail: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly config: ConfigService,
     private readonly adapters: AdapterRegistry,
+    private readonly catalogImport: CatalogImportService,
+    private readonly snapshotFactory: RegistrySnapshotFactory,
     private readonly registry: RegistryService,
     private readonly redis: RedisService,
-    private readonly configSync: ConfigSyncService,
-    @InjectRepository(ModelDefinition) private readonly modelRepo: Repository<ModelDefinition>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -51,218 +32,103 @@ export class RegistryBootstrapService implements OnModuleInit {
       this.logger.log('REGISTRY_AUTOLOAD=false — skipping bootstrap');
       return;
     }
-    try {
-      const r = await this.reload({ syncDb: true });
-      this.logger.log(`registry loaded: ${r.loaded} models from ${r.files.length} files`);
-    } catch (e) {
-      this.logger.error(`registry bootstrap failed: ${(e as Error).message}`);
-      throw e;
-    }
+    const report = await this.reload();
+    this.logger.log(
+      `catalog registry loaded: ${report.loaded} models, epoch ${report.catalog_epoch}`,
+    );
   }
 
-  /**
-   * Re-read YAML, validate, build runtime snapshot, optionally upsert DB.
-   * Throws on validation failures so /admin/registry/reload returns 422
-   * without mutating the in-memory snapshot.
-   */
-  async reload(opts: { syncDb: boolean }): Promise<ReloadReport> {
-    const root = resolveConfigRoot(this.config.get<string>('XGCANVAS_CONFIG_ROOT'));
-    const [files, templates] = await Promise.all([loadProviderFiles(root), loadTemplates(root)]);
+  reload(): Promise<ReloadReport> {
+    return this.enqueue(() => this.performReload());
+  }
 
-    const failures: ValidationFailure[] = [];
-    const validated: { filePath: string; data: ProviderFile }[] = [];
-    for (const file of files) {
-      const r = validateProviderFile(file.filePath, file.raw);
-      if (r.ok) validated.push({ filePath: file.filePath, data: r.data });
-      else failures.push((r as { ok: false; failure: ValidationFailure }).failure);
-    }
-    if (failures.length > 0) {
-      const summary = failures.map((f) => `${f.filePath}: ${f.message}`).join('\n');
-      throw new Error(`registry validation failed:\n${summary}`);
-    }
+  mutateLocal<T>(mutation: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return this.enqueue(async () => {
+      const outcome = await this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+        await manager.query(
+          "SELECT pg_advisory_xact_lock(hashtext('xgcanvas:catalog-activation'))",
+        );
+        await manager.query('SELECT id FROM account.catalog_runtime_state WHERE id = 1 FOR UPDATE');
+        const value = await mutation(manager);
+        const candidate = await this.snapshotFactory.build(manager);
+        const stateRepo = manager.getRepository(CatalogRuntimeState);
+        const state = await stateRepo.findOneByOrFail({ id: 1 });
+        state.catalog_epoch = (BigInt(state.catalog_epoch) + 1n).toString();
+        state.snapshot_digest = candidate.content_digest;
+        await stateRepo.save(state);
+        return { value, candidate, catalogEpoch: String(state.catalog_epoch) };
+      });
+      const snapshot = this.snapshotFactory.withCatalogEpoch(
+        outcome.candidate,
+        outcome.catalogEpoch,
+      );
+      this.registry.setSnapshot(snapshot);
+      await this.cacheRevision(snapshot.byId.size, snapshot.catalog_epoch, snapshot.content_digest);
+      return outcome.value;
+    });
+  }
 
-    const entries: ModelRegistryEntry[] = [];
-    // provider slug -> default adapter key (from YAML), reused to resolve manual models.
-    const providerAdapterBySlug = new Map<string, string | undefined>();
-    for (const v of validated) {
-      const providerKey = v.data.provider.slug;
-      const adapterKeys = v.data.provider.adapter_keys ?? [];
-      providerAdapterBySlug.set(providerKey, adapterKeys[0]);
-      for (const m of v.data.models ?? []) {
-        const taskTypes = (m.task_types as string[]).map(canonicaliseTaskType) as TaskType[];
-        const capabilities = ((m as { capabilities?: string[] }).capabilities ?? []).map(
-          canonicaliseCapability,
-        ) as Capability[];
-        const adapterKey =
-          (m as { adapter_key?: string }).adapter_key ??
-          adapterKeys[0] ??
-          guessAdapterKey(providerKey, taskTypes);
-        if (!this.adapters.has(adapterKey)) {
-          throw new Error(`model ${m.model_id} references unknown adapter ${adapterKey}`);
-        }
-        const resolvedSchema = resolveSchemaWithTemplate(m.param_schema, templates);
-        const manifest: ModelManifestEntry = {
-          id: m.model_id,
-          display_name: m.display_name,
-          provider_key: providerKey,
-          adapter_key: adapterKey,
-          provider_model: m.provider_model_id,
-          task_types: taskTypes,
-          capabilities,
-          invocation_mode: (m.invocation_mode ?? 'sync') as ModelManifestEntry['invocation_mode'],
-          param_schema: (resolvedSchema as ModelManifestEntry['param_schema']) ?? defaultSchema(),
-          input_contract: (m as { input_contract?: ModelManifestEntry['input_contract'] })
-            .input_contract,
-          constraints: (m.param_constraints ?? []) as ModelManifestEntry['constraints'],
-          poll_policy: m.poll_policy as ModelManifestEntry['poll_policy'],
-        };
-        entries.push(defineModel(manifest));
-      }
-    }
+  private async performReload(): Promise<ReloadReport> {
+    const { bundlePath, compilation } = await this.loadCompilation();
 
-    // Dual-source registry (铁律 #7): merge enabled source=manual models from the DB on
-    // top of the YAML presets, so admin-imported / hand-added models are invokable
-    // without a YAML edit. Preset ids win on collision.
-    const presetIds = new Set(entries.map((e) => e.manifest.id));
-    const manualEntries = await this.loadManualEntries(templates, providerAdapterBySlug, presetIds);
-    entries.push(...manualEntries);
-
-    const snapshot = buildSnapshot(entries);
+    const outcome = await this.catalogImport.activateOfficialWithCandidate(
+      compilation,
+      async (manager) => {
+        const snapshot = await this.snapshotFactory.build(manager);
+        return { value: snapshot, content_digest: snapshot.content_digest };
+      },
+    );
+    const snapshot = this.snapshotFactory.withCatalogEpoch(
+      outcome.candidate,
+      String(outcome.result.catalog_epoch),
+    );
     this.registry.setSnapshot(snapshot);
-    await this.cacheRevision(entries.length);
-
-    if (opts.syncDb) {
-      try {
-        await this.configSync.syncFromConfig(root);
-      } catch (e) {
-        this.logger.warn(`DB upsert failed (registry kept in memory): ${(e as Error).message}`);
-      }
-    }
-
+    await this.cacheRevision(snapshot.byId.size, snapshot.catalog_epoch, snapshot.content_digest);
     return {
-      loaded: entries.length,
-      files: validated.map((v) => v.filePath),
-      errors: [],
+      loaded: snapshot.byId.size,
+      files: [bundlePath],
+      errors: outcome.result.errors,
+      release_id: outcome.result.release_id,
+      catalog_epoch: snapshot.catalog_epoch,
+      content_digest: snapshot.content_digest,
+      resources: outcome.result.resources,
     };
   }
 
-  /**
-   * Build registry entries from enabled source=manual model_definitions. The vendor-model
-   * pull (and any hand-added model) writes these rows; this is what makes them live without
-   * a YAML edit. param_schema {extends:"templates/..."} is resolved against the same
-   * templates as presets; the adapter key falls back to the provider's YAML adapter.
-   */
-  private async loadManualEntries(
-    templates: Parameters<typeof resolveSchemaWithTemplate>[1],
-    providerAdapterBySlug: Map<string, string | undefined>,
-    presetIds: Set<string>,
-  ): Promise<ModelRegistryEntry[]> {
-    const out: ModelRegistryEntry[] = [];
-    let rows: ModelDefinition[];
-    try {
-      rows = await this.modelRepo.find({
-        where: { source: 'manual', enabled: true },
-        relations: ['provider'],
-      });
-    } catch (e) {
-      this.logger.warn(`manual model load skipped: ${(e as Error).message}`);
-      return out;
-    }
-    for (const m of rows) {
-      if (presetIds.has(m.model_id)) continue; // preset wins on id collision
-      const providerKey = m.provider?.slug;
-      if (!providerKey) {
-        this.logger.warn(`manual model ${m.model_id} has no provider slug, skipped`);
-        continue;
-      }
-      const taskTypes = (m.task_types ?? []).map(canonicaliseTaskType) as TaskType[];
-      const capabilities = (m.capabilities ?? []).map(canonicaliseCapability) as Capability[];
-      const adapterKey =
-        m.adapter_key ??
-        providerAdapterBySlug.get(providerKey) ??
-        guessAdapterKey(providerKey, taskTypes);
-      if (!this.adapters.has(adapterKey)) {
-        this.logger.warn(
-          `manual model ${m.model_id} references unknown adapter ${adapterKey}, skipped`,
-        );
-        continue;
-      }
-      const inputContract = parseOptionalModelInputContract(m.input_contract);
-      if (!inputContract.success) {
-        this.logger.warn(
-          `manual model ${m.model_id} has invalid input_contract, skipped: ${inputContract.message}`,
-        );
-        continue;
-      }
-      const resolvedSchema = resolveSchemaWithTemplate(m.param_schema, templates);
-      const manifest: ModelManifestEntry = {
-        id: m.model_id,
-        display_name: m.display_name,
-        provider_key: providerKey,
-        adapter_key: adapterKey,
-        provider_model: m.provider_model_id,
-        task_types: taskTypes,
-        capabilities,
-        invocation_mode: (m.invocation_mode ?? 'sync') as ModelManifestEntry['invocation_mode'],
-        param_schema: (resolvedSchema as ModelManifestEntry['param_schema']) ?? defaultSchema(),
-        input_contract: inputContract.data,
-        constraints: (m.param_constraints ?? []) as ModelManifestEntry['constraints'],
-        poll_policy: m.poll_policy as ModelManifestEntry['poll_policy'],
-      };
-      out.push(defineModel(manifest));
-    }
-    if (out.length) this.logger.log(`registry merged ${out.length} manual model(s) from DB`);
-    return out;
+  async preview() {
+    const { compilation } = await this.loadCompilation();
+    return this.catalogImport.previewOfficial(compilation);
   }
 
-  private async cacheRevision(count: number): Promise<void> {
+  private async loadCompilation() {
+    const configRoot = resolveConfigRoot(this.config.get<string>('XGCANVAS_CONFIG_ROOT'));
+    const bundlePath = path.join(configRoot, 'model-catalog.bundle.json');
+    const adapters = this.adapters.list();
+    const knownAdapters = new Set(adapters.map((adapter) => adapter.key));
+    const taskTypes = new Map(adapters.map((adapter) => [adapter.key, adapter.capabilities]));
+    return {
+      bundlePath,
+      compilation: await loadCatalogBundle(bundlePath, knownAdapters, taskTypes),
+    };
+  }
+
+  private async cacheRevision(count: number, epoch: string, digest: string): Promise<void> {
     try {
       await this.redis.set(
         RedisKeys.registry.revision(),
-        JSON.stringify({ at: new Date().toISOString(), count }),
+        JSON.stringify({ at: new Date().toISOString(), count, epoch, digest }),
       );
-    } catch (e) {
-      this.logger.warn(`redis cache write skipped: ${(e as Error).message}`);
+    } catch (error) {
+      this.logger.warn(`redis registry metadata write skipped: ${(error as Error).message}`);
     }
   }
-}
 
-function buildSnapshot(entries: ModelRegistryEntry[]): RegistrySnapshot {
-  const byId = new Map<string, ModelRegistryEntry>();
-  const byTaskType = new Map<TaskType, ModelRegistryEntry[]>();
-  const byProvider = new Map<string, ModelRegistryEntry[]>();
-  for (const e of entries) {
-    byId.set(e.manifest.id, e);
-    for (const t of e.manifest.task_types) {
-      const list = byTaskType.get(t) ?? [];
-      list.push(e);
-      byTaskType.set(t, list);
-    }
-    const pList = byProvider.get(e.manifest.provider_key) ?? [];
-    pList.push(e);
-    byProvider.set(e.manifest.provider_key, pList);
+  private enqueue<T>(work: () => Promise<T>): Promise<T> {
+    const result = this.operationTail.then(work, work);
+    this.operationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
-  return {
-    byId,
-    byTaskType,
-    byProvider,
-    loaded_at: new Date().toISOString(),
-  };
-}
-
-function defaultSchema(): ModelManifestEntry['param_schema'] {
-  return {
-    version: '1.0',
-    groups: [],
-    properties: {},
-    required: [],
-    defaults: {},
-  };
-}
-
-function guessAdapterKey(providerKey: string, taskTypes: string[]): string {
-  if (providerKey === 'doubao' && taskTypes.some((t) => t.includes('video'))) return 'doubao-video';
-  if (providerKey === 'doubao' && taskTypes.some((t) => t.includes('image'))) return 'doubao-image';
-  if (providerKey === 'dreamina') return 'dreamina-cli';
-  return 'openai-compat';
 }

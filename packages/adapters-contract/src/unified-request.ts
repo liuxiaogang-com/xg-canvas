@@ -7,13 +7,17 @@
  * `task_type` to know which optional fields to expect.
  */
 
-import type { GenerationInput, ResolvedGenerationReference, TaskType } from '@xgcanvas/shared-types';
+import type {
+  GenerationInput,
+  ResolvedGenerationReference,
+  TaskType,
+} from '@xgcanvas/shared-types';
 
 export interface UnifiedRequest {
   task_type: TaskType;
-  /** Internal model id (matches model_definitions.id). */
+  /** Stable public model_id from the pinned Catalog Model Revision. */
   model_id: string;
-  /** Provider-side identifier (e.g. "gpt-4o", "doubao-seed-1.6"). */
+  /** Provider-side identifier (e.g. "gpt-4o", "deepseek-chat"). */
   provider_model: string;
   /** Validated + constraint-resolved params, ready for vendor mapping. */
   params: Record<string, unknown>;
@@ -42,8 +46,6 @@ export interface UnifiedInputs {
   references?: ResolvedGenerationReference[];
   /** Single mask, when task_type is image.edit / outpaint. */
   mask_url?: string;
-  /** Audio input for non-generation tasks such as ASR. */
-  audio_url?: string;
   /** Free-form structured payload (script JSON, storyboard rows, ...). */
   json?: unknown;
 }

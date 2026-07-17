@@ -1,0 +1,10 @@
+version: "1.0"
+provider_slug: openai
+channels:
+  - resource_uid: 203a774a-9df9-4718-bbdc-950f9241ad31
+    revision: 1
+    slug: openai-official
+    display_name: OpenAI 官方 API
+    invocation_method: http
+    adapter_keys:
+      - openai-compat

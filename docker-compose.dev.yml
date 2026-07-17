@@ -43,7 +43,11 @@ services:
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-http://localhost:5180}"
       DEMO_MODE: "${DEMO_MODE:-false}"
       DREAMINA_CLI_PATH: /usr/local/bin/dreamina
-    command: sh -c "pnpm db:migrate && pnpm --filter @xgcanvas/canvas-api dev"
+    command: >-
+      sh -c "pnpm build:workspace-libs
+      && pnpm --filter @xgcanvas/model-catalog catalog:build
+      && pnpm db:migrate
+      && pnpm --filter @xgcanvas/canvas-api dev"
     ports:
       - "127.0.0.1:${CANVAS_API_PORT:-5181}:5181"
     healthcheck:
@@ -61,9 +65,9 @@ services:
       - ./config:/app/config
       - ./database/migrations:/app/database/migrations
       - ./packages/shared-types/src:/app/packages/shared-types/src
-      - ./packages/shared-types/dist:/app/packages/shared-types/dist
+      - ./packages/constraint-engine/src:/app/packages/constraint-engine/src
       - ./packages/adapters-contract/src:/app/packages/adapters-contract/src
-      - ./packages/adapters-contract/dist:/app/packages/adapters-contract/dist
+      - ./packages/model-catalog/src:/app/packages/model-catalog/src
       - encryption-data:/var/lib/xgcanvas/secrets
       - dreamina-data:/root/.dreamina_cli
       - dreamina-share-data:/root/.local/share/dreamina

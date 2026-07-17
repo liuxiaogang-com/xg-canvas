@@ -1,25 +1,18 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AdaptersModule } from '../adapters/adapters.module';
-import { ConfigSyncModule } from '../config-sync/config-sync.module';
-import { ModelDefinition } from '../model-definition/model-definition.entity';
+import { CatalogModule } from '../catalog/catalog.module';
 import { RedisModule } from '../redis';
 import { RegistryBootstrapService } from './registry-bootstrap.service';
 import { RegistryController } from './registry.controller';
 import { RegistryService } from './registry.service';
+import { RegistrySnapshotFactory } from './registry-snapshot.factory';
 
 @Global()
 @Module({
-  imports: [
-    ConfigModule,
-    AdaptersModule,
-    ConfigSyncModule,
-    RedisModule,
-    TypeOrmModule.forFeature([ModelDefinition]),
-  ],
-  providers: [RegistryService, RegistryBootstrapService],
+  imports: [ConfigModule, AdaptersModule, CatalogModule, RedisModule],
+  providers: [RegistryService, RegistrySnapshotFactory, RegistryBootstrapService],
   controllers: [RegistryController],
   exports: [RegistryService, RegistryBootstrapService],
 })

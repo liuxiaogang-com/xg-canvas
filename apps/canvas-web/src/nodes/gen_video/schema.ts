@@ -1,6 +1,7 @@
 import type { NodeSchema } from '../types';
 import { mapVideoReferences } from '../_shared/generation-input';
 import { collectNodeParams } from '../_shared/task-params';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 type VideoMode =
   | 'text_to_video'
@@ -73,7 +74,7 @@ export const genVideoSchema: NodeSchema<GenVideoData> = {
     }
     return {
       task_type: 'gen.video',
-      model_id: data.model_id ?? 'doubao:jimeng-video',
+      model_id: requireSelectedModel(data.model_id),
       params,
       inputs,
     };

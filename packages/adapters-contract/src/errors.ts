@@ -5,12 +5,23 @@
  */
 
 import { ERROR_CODES, type ApiError, type ErrorCode } from '@xgcanvas/shared-types';
+import type { UsageStats } from './unified-response';
+
+export type DispatchOutcome = 'definitely_rejected' | 'outcome_unknown' | 'accepted';
+
+/** Terminal vendor evidence captured before local result ingestion failed. */
+export interface AcceptedVendorResult {
+  usage?: UsageStats;
+  vendor_request_id?: string;
+}
 
 export class AdapterError extends Error {
   readonly code: ErrorCode;
   readonly retryable: boolean;
   readonly vendor?: unknown;
   readonly httpStatus?: number;
+  readonly dispatch_outcome: DispatchOutcome;
+  readonly accepted_result?: AcceptedVendorResult;
 
   constructor(opts: {
     code: ErrorCode;
@@ -18,6 +29,8 @@ export class AdapterError extends Error {
     retryable?: boolean;
     vendor?: unknown;
     httpStatus?: number;
+    dispatch_outcome?: DispatchOutcome;
+    accepted_result?: AcceptedVendorResult;
   }) {
     super(opts.message);
     this.name = 'AdapterError';
@@ -25,6 +38,11 @@ export class AdapterError extends Error {
     this.retryable = opts.retryable ?? false;
     this.vendor = opts.vendor;
     this.httpStatus = opts.httpStatus;
+    this.dispatch_outcome = opts.dispatch_outcome ?? 'definitely_rejected';
+    this.accepted_result = opts.accepted_result;
+    if (this.accepted_result && this.dispatch_outcome !== 'accepted') {
+      throw new TypeError('accepted_result requires dispatch_outcome=accepted');
+    }
   }
 
   toApiError(): ApiError {
@@ -49,6 +67,7 @@ export function wrapUnknownVendorError(e: unknown): AdapterError {
     code: ERROR_CODES.ADAPTER_INTERNAL,
     message,
     retryable: false,
+    dispatch_outcome: 'outcome_unknown',
     vendor: e,
   });
 }

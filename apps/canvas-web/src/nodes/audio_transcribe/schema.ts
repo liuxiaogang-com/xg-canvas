@@ -1,4 +1,5 @@
 import type { NodeSchema } from '../types';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 export interface AudioTranscribeData {
   model_id: string | null;
@@ -14,20 +15,29 @@ export const audioTranscribeSchema: NodeSchema<AudioTranscribeData> = {
   inputs: [{ id: 'audio', type: 'audio', label: '音频' }],
   outputs: [{ id: 'out', type: 'text' }],
   defaultData: { model_id: null, language: 'zh' },
-  pillActions: [
-    { id: 'regenerate', label: '重新识别', icon: '↻' },
-  ],
+  form: {
+    taskType: 'audio.transcribe',
+    cost: true,
+    submit: { label: '识别' },
+  },
+  pillActions: [{ id: 'regenerate', label: '重新识别', icon: '↻' }],
   agentSuggestions: ['切换到英文识别', '提取关键词'],
   agentContext(data) {
     return `这是一个语音识别节点。语言: ${data.language}，模型: ${data.model_id ?? '未指定'}。`;
   },
   buildTaskBody(data, upstream) {
-    const audio = upstream.references?.find((r) => r.type === 'audio' || r.slot === 'driving_audio');
+    const audio = upstream.references?.find(
+      (r) => r.type === 'audio' || r.slot === 'driving_audio',
+    );
     return {
       task_type: 'audio.transcribe',
-      model_id: data.model_id ?? 'openai:whisper-1',
+      model_id: requireSelectedModel(data.model_id),
       params: { language: data.language },
-      inputs: { audio_url: audio?.asset_id },
+      inputs: {
+        references: audio?.asset_id
+          ? [{ slot: 'driving_audio', type: 'audio' as const, asset_id: audio.asset_id }]
+          : [],
+      },
     };
   },
 };

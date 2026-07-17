@@ -1,30 +1,16 @@
 import { api } from './client';
+import type {
+  TaskRecord as SharedTaskRecord,
+  TaskStatus as SharedTaskStatus,
+  TaskType,
+} from '@xgcanvas/shared-types';
 
-export type TaskStatus = 'pending' | 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-
-export interface TaskRecord {
-  id: string;
-  type: string;
-  status: TaskStatus;
-  model_id: string;
-  project_id: string | null;
-  source_node_id: string | null;
-  workspace_id: string;
-  params: Record<string, unknown>;
-  inputs: Record<string, unknown>;
-  output_asset_ids: string[];
-  text_output: string | null;
-  json_output: unknown;
-  progress: number | null;
-  error: { code: string; message: string } | null;
-  created_at: string;
-  updated_at: string;
-  finished_at: string | null;
-}
+export type TaskStatus = SharedTaskStatus;
+export type TaskRecord = SharedTaskRecord;
 
 export const taskApi = {
   create: (body: {
-    task_type: string;
+    task_type: TaskType;
     model_id: string;
     params: Record<string, unknown>;
     inputs?: Record<string, unknown>;

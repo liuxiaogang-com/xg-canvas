@@ -16,7 +16,7 @@ import type { UnifiedResponse } from './unified-response';
 export type InvocationMode = 'sync' | 'async' | 'stream';
 
 export interface ProviderAdapter {
-  /** Stable identifier, e.g. "openai-compat", "doubao-image". */
+  /** Stable identifier, e.g. "openai-compat", "bailian-dashscope". */
   readonly key: string;
   /** Task types this adapter can serve. */
   readonly capabilities: readonly TaskType[];

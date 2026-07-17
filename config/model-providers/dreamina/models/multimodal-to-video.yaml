@@ -1,0 +1,107 @@
+version: "1.0"
+provider_slug: dreamina
+models:
+  - resource_uid: 8f77205d-e682-4422-8692-cb01cc92757e
+    revision: 1
+    model_id: dreamina:multimodal2video
+    provider_model_id: multimodal2video
+    display_name: 即梦全能参考视频
+    description: 多模态混合参考视频生成（全能参考），支持图片+视频+音频
+    task_types:
+      - gen.video
+    capabilities:
+      - image_ref
+      - multi_reference
+    invocation_mode: async
+    adapter_key: dreamina-cli
+    allowed_channel_slugs:
+      - dreamina-cli
+    tags:
+      - 视频
+      - 全能参考
+    input_contract:
+      default_mode: reference_to_video
+      modes:
+        - id: reference_to_video
+          label: 全能参考
+          required_slots:
+            - slot: reference_image
+              type: image
+              min: 1
+              max: 9
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+          optional_slots:
+            - slot: source_video
+              type: video
+              max: 3
+            - slot: driving_audio
+              type: audio
+              max: 3
+              library:
+                kinds:
+                  - voice
+                forms:
+                  - material
+        - id: audio_driven_video
+          label: 音频参考
+          required_slots:
+            - slot: reference_image
+              type: image
+              min: 1
+              max: 9
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+            - slot: driving_audio
+              type: audio
+              min: 1
+              max: 3
+              library:
+                kinds:
+                  - voice
+                forms:
+                  - material
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [duration, ratio, video_resolution, model_version], ui_zone: params }
+      properties:
+        prompt: { type: text, label: 提示词 }
+        duration: { type: number, label: 时长（秒）, min: 4, max: 15 }
+        ratio:
+          type: enum
+          label: 比例
+          enum_options:
+            - { value: "1:1", label: "1:1" }
+            - { value: "3:4", label: "3:4" }
+            - { value: "16:9", label: "16:9" }
+            - { value: "4:3", label: "4:3" }
+            - { value: "9:16", label: "9:16" }
+            - { value: "21:9", label: "21:9" }
+        video_resolution:
+          type: enum
+          label: 分辨率
+          enum_options:
+            - { value: 720p, label: 720p }
+            - { value: 1080p, label: 1080p }
+            - { value: 4k, label: 4K }
+        model_version:
+          type: enum
+          label: 模型版本
+          enum_options:
+            - { value: seedance2.0, label: Seedance 2.0 }
+            - { value: seedance2.0fast, label: Seedance 2.0 Fast }
+            - { value: seedance2.0_vip, label: Seedance 2.0 VIP }
+            - { value: seedance2.0fast_vip, label: Seedance 2.0 Fast VIP }
+            - { value: seedance2.0mini, label: Seedance 2.0 Mini }
+      required: []
+      defaults: { duration: 5, ratio: "16:9", video_resolution: 720p, model_version: seedance2.0fast }

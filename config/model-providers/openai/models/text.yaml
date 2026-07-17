@@ -1,0 +1,79 @@
+version: "1.0"
+provider_slug: openai
+models:
+  - resource_uid: cd449cd7-9043-4a68-bb15-5a8426774be0
+    revision: 1
+    model_id: openai:gpt-4o
+    provider_model_id: gpt-4o
+    display_name: GPT-4o
+    description: 最强大的多模态模型，支持文本和图片理解
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - vision
+      - json_mode
+      - structured_output
+      - tool_use
+      - streaming
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - openai-official
+    supports_streaming: true
+    tags:
+      - 推荐
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+    pricing:
+      resource_uid: 41778e19-ff61-4bf2-ae8a-d4d47627899d
+      revision: 1
+      currency: USD
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 2.5
+        - meter: output_tokens
+          per: 1000000
+          price: 10
+  - resource_uid: 818a7ae0-2614-4f9f-98f7-5c811007a661
+    revision: 1
+    model_id: openai:gpt-4o-mini
+    provider_model_id: gpt-4o-mini
+    display_name: GPT-4o Mini
+    description: 轻量高速模型，适合简单任务
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - vision
+      - json_mode
+      - structured_output
+      - tool_use
+      - streaming
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - openai-official
+    supports_streaming: true
+    tags:
+      - 高性价比
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+    pricing:
+      resource_uid: c56813d0-cfb8-40a8-bbdf-03ff44645d64
+      revision: 1
+      currency: USD
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 0.15
+        - meter: output_tokens
+          per: 1000000
+          price: 0.6

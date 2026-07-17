@@ -8,6 +8,7 @@
  */
 
 export const TASK_STATUSES = [
+  'pending',
   'queued',
   'running',
   'succeeded',
@@ -60,8 +61,8 @@ export interface TaskInput {
   source_id?: string;
   /** Caller-provided params, validated by constraint-engine before invoke. */
   params: Record<string, unknown>;
-  /** Optional model_id; if absent the registry default for the task_type wins. */
-  model_id?: string;
+  /** Canonical Catalog model_id selected before the Task is created. */
+  model_id: string;
 }
 
 export interface TaskError {
@@ -76,18 +77,21 @@ export interface TaskRecord {
   id: string;
   type: TaskType;
   status: TaskStatus;
-  /** ID issued by the upstream provider, present once invoke returns. */
-  external_task_id?: string;
-  input: TaskInput;
-  /** Asset ids produced by the task; populated on succeeded. */
+  model_id: string;
+  project_id: string | null;
+  source_node_id: string | null;
+  workspace_id: string;
+  params: Record<string, unknown>;
+  inputs: Record<string, unknown>;
   output_asset_ids: string[];
-  error?: TaskError;
-  attempts: number;
-  /** Next time the poller is allowed to touch this task. */
-  next_poll_at?: string;
+  text_output: string | null;
+  json_output: unknown;
+  progress: number | null;
+  /** Public errors intentionally exclude vendor payloads and retry metadata. */
+  error: Pick<TaskError, 'code' | 'message'> | null;
   created_at: string;
   updated_at: string;
-  finished_at?: string;
+  finished_at: string | null;
 }
 
 export const TERMINAL_TASK_STATUSES: readonly TaskStatus[] = [

@@ -22,14 +22,13 @@
     "@nestjs/typeorm": "^10.0.0",
     "@xgcanvas/adapters-contract": "workspace:*",
     "@xgcanvas/constraint-engine": "workspace:*",
+    "@xgcanvas/model-catalog": "workspace:*",
     "@xgcanvas/shared-types": "workspace:*",
     "argon2": "^0.41.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "cookie-parser": "^1.4.7",
-    "glob": "^11.0.0",
     "ioredis": "^5.4.0",
-    "js-yaml": "^4.1.0",
     "nodemailer": "^9.0.3",
     "passport": "^0.7.0",
     "pg": "^8.13.0",
@@ -43,7 +42,6 @@
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.0",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^8.0.1",
     "jest": "^29.7.0",
@@ -57,7 +55,8 @@
     "moduleNameMapper": {
       "^@xgcanvas/shared-types$": "<rootDir>/../../../packages/shared-types/src/index.ts",
       "^@xgcanvas/adapters-contract$": "<rootDir>/../../../packages/adapters-contract/src/index.ts",
-      "^@xgcanvas/constraint-engine$": "<rootDir>/../../../packages/constraint-engine/src/index.ts"
+      "^@xgcanvas/constraint-engine$": "<rootDir>/../../../packages/constraint-engine/src/index.ts",
+      "^@xgcanvas/model-catalog$": "<rootDir>/../../../packages/model-catalog/src/index.ts"
     }
   }
 }

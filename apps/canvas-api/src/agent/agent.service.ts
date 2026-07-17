@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
-import { AccountInvokeClient } from '../account-client';
-import { FeatureConfigService } from '../account/feature-config/feature-config.service';
+import { AccountInvokeClient, AccountModelsClient } from '../account-client';
 import type { AgentMessageDto } from './dto/agent-message.dto';
 
 const SYSTEM_PROMPT = `你是 XG Canvas 创意画布上的 Agent 助手。
@@ -41,8 +39,7 @@ export class AgentService {
 
   constructor(
     private readonly invoke: AccountInvokeClient,
-    private readonly config: ConfigService,
-    private readonly featureConfig: FeatureConfigService,
+    private readonly models: AccountModelsClient,
   ) {}
 
   /**
@@ -53,14 +50,13 @@ export class AgentService {
    */
   async runTurn(userId: string, workspaceId: string, dto: AgentMessageDto): Promise<AgentReply> {
     const sessionId = dto.session_id ?? randomUUID();
-    const modelId =
-      dto.model_id ??
-      (await this.featureConfig.resolveModel('agent')) ??
-      this.config.get<string>('AGENT_DEFAULT_MODEL', 'openai:gpt-4o-mini');
+    const modelId = dto.model_id ?? (await this.models.requireFeatureModel('agent', 'gen.text'));
 
     const system = [SYSTEM_PROMPT];
     if (dto.node_context) {
-      system.push(`当前选中节点: type=${dto.node_context.type}, data=${JSON.stringify(dto.node_context.data)}`);
+      system.push(
+        `当前选中节点: type=${dto.node_context.type}, data=${JSON.stringify(dto.node_context.data)}`,
+      );
     }
 
     const messages = [
@@ -76,6 +72,7 @@ export class AgentService {
       workspace_id: workspaceId,
       params: { temperature: 0.5, max_tokens: 600, json_mode: true },
       inputs: { messages },
+      resolution: { kind: 'current' },
     });
 
     const text = res.text ?? '';
@@ -90,7 +87,10 @@ export class AgentService {
 
   private tryParse(text: string): AgentReply['patch'] {
     if (!text) return null;
-    const trimmed = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '');
+    const trimmed = text
+      .trim()
+      .replace(/^```(?:json)?/, '')
+      .replace(/```$/, '');
     try {
       return JSON.parse(trimmed);
     } catch {

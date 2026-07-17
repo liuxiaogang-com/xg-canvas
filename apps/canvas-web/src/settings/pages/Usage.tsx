@@ -28,7 +28,6 @@ const STATUS: { key: keyof StatsOverview; label: string; tone: 'success' | 'dang
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
-const money = (n: number) => `¥${n.toFixed(2)}`;
 const rate = (n: number) => `${n.toFixed(0)}%`;
 
 /* ── overview tab ────────────────────────────────────────────── */
@@ -57,7 +56,6 @@ function OverviewView() {
     <>
       <div className="set-stats">
         <StatCard label="总任务数" value={data.total} />
-        <StatCard label="预估费用" value={money(data.estimated_cost)} />
       </div>
       <div className="set-tags" style={{ marginTop: 16 }}>
         {STATUS.map((s) => (
@@ -82,14 +80,14 @@ const MEMBER_COLUMNS: Column<MemberStats>[] = [
   { key: 'name', header: '成员', render: (r) => r.display_name || r.email || r.owner_id.slice(0, 8) },
   { key: 'total', header: '任务数', width: 100 },
   { key: 'succeeded', header: '成功', width: 100 },
-  { key: 'estimated_cost', header: '预估费用', width: 140, render: (r) => money(r.estimated_cost) },
+  { key: 'failed', header: '失败', width: 100 },
 ];
 
 const PROJECT_COLUMNS: Column<ProjectStats>[] = [
   { key: 'name', header: '项目', render: (r) => r.project_name || '(未归类)' },
   { key: 'total', header: '任务数', width: 100 },
   { key: 'succeeded', header: '成功', width: 100 },
-  { key: 'estimated_cost', header: '预估费用', width: 140, render: (r) => money(r.estimated_cost) },
+  { key: 'failed', header: '失败', width: 100 },
 ];
 
 function RowsView<T>({
@@ -128,7 +126,7 @@ export default function Usage() {
   const [tab, setTab] = useState<Tab>('overview');
 
   return (
-    <SettingsPage title="用量统计" description="任务消耗概览与按模型 / 成员 / 项目的明细统计">
+    <SettingsPage title="用量统计" description="任务运行统计，不推算或混合不同币种；真实费用请在计费页按币种查看。">
       <div>
         <Segmented value={tab} options={TABS} onChange={setTab} />
       </div>

@@ -1,0 +1,19 @@
+version: "1.0"
+provider:
+  resource_uid: 1edbb102-de62-495d-a754-ba2a81f6684d
+  revision: 1
+  slug: deepseek
+  display_name: DeepSeek
+  icon_url: /icons/deepseek.svg
+  homepage_url: https://platform.deepseek.com
+  auth_method: api_key
+  base_url: https://api.deepseek.com
+  adapter_keys:
+    - openai-compat
+  invocation_methods:
+    - http
+  sdk_package: openai
+  supported_regions:
+    - cn
+    - global
+  description: DeepSeek 大模型，兼容 OpenAI API 格式

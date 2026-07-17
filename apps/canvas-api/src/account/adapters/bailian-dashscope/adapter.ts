@@ -7,16 +7,16 @@ import {
   type UnifiedRequest,
   type UnifiedResponse,
 } from '@xgcanvas/adapters-contract';
-import { ERROR_CODES, type ErrorCode, type TaskType } from '@xgcanvas/shared-types';
+import { BUILTIN_ADAPTER_CAPABILITIES, ERROR_CODES, type ErrorCode } from '@xgcanvas/shared-types';
 
 import { clampPollDelay } from '../_shared/async-poller';
 import { mapVendorError } from '../_shared/error-mapper';
 import { BailianDashscopeClient } from './client';
 import { buildBailianImageRequest, buildBailianVideoRequest } from './request-builder';
-import { parseImageAssets, parseTaskStatus } from './response-parser';
-import type { BailianCredential } from './types';
+import { normalizeBailianUsage, parseImageAssets, parseTaskStatus } from './response-parser';
+import type { BailianCredential, DashScopeImageResponse } from './types';
 
-const CAPS: readonly TaskType[] = ['gen.image', 'gen.video'];
+const CAPS = BUILTIN_ADAPTER_CAPABILITIES['bailian-dashscope'];
 
 export class BailianDashscopeAdapter implements ProviderAdapter {
   readonly key = 'bailian-dashscope';
@@ -35,15 +35,21 @@ export class BailianDashscopeAdapter implements ProviderAdapter {
           cred,
           ctx.signal,
         );
-        const assets = await downloadAssets(ctx, parseImageAssets(res));
-        if (assets.length === 0) {
+        const stubs = parseImageAssets(res);
+        if (stubs.length === 0) {
           throw new AdapterError({
             code: ERROR_CODES.VENDOR_REJECTED,
             message: res.message ?? 'bailian image response returned no image',
             vendor: res,
           });
         }
-        return { status: 'succeeded', assets };
+        let assets: ProducedAsset[];
+        try {
+          assets = await downloadAssets(ctx, stubs);
+        } catch (error) {
+          throw acceptedIngestionError(error, res);
+        }
+        return { status: 'succeeded', assets, usage: normalizeBailianUsage(res.usage) };
       }
 
       const res = await this.client.submitVideo(
@@ -74,9 +80,13 @@ export class BailianDashscopeAdapter implements ProviderAdapter {
   async poll(externalTaskId: string, ctx: InvokeCtx): Promise<PollResult> {
     const cred = readCredential(ctx);
     try {
-      const parsed = parseTaskStatus(
-        await this.client.getTask(ctx.channel.base_url, externalTaskId, cred, ctx.signal),
+      const response = await this.client.getTask(
+        ctx.channel.base_url,
+        externalTaskId,
+        cred,
+        ctx.signal,
       );
+      const parsed = parseTaskStatus(response);
       if (parsed.status !== 'succeeded') {
         return {
           response: {
@@ -87,10 +97,17 @@ export class BailianDashscopeAdapter implements ProviderAdapter {
                 ? { code: ERROR_CODES.VENDOR_REJECTED, message: parsed.errorMessage ?? 'failed' }
                 : undefined,
           },
-          next_poll_after_ms: parsed.status === 'running' ? clampPollDelay(undefined, 10_000) : undefined,
+          next_poll_after_ms:
+            parsed.status === 'running' ? clampPollDelay(undefined, 10_000) : undefined,
         };
       }
-      return { response: { status: 'succeeded', assets: await downloadAssets(ctx, parsed.assets) } };
+      return {
+        response: {
+          status: 'succeeded',
+          assets: await downloadAssets(ctx, parsed.assets),
+          usage: normalizeBailianUsage(response.usage),
+        },
+      };
     } catch (e) {
       throw mapVendorError(e, resolveBailianCode);
     }
@@ -124,6 +141,25 @@ async function downloadAssets(
     });
   }
   return assets;
+}
+
+function acceptedIngestionError(error: unknown, response: DashScopeImageResponse): AdapterError {
+  const mapped = mapVendorError(error);
+  return new AdapterError({
+    code: mapped.code,
+    message: `vendor image succeeded but asset ingestion failed: ${mapped.message}`,
+    retryable: false,
+    vendor: {
+      vendor_request_id: response.request_id ?? null,
+      ingestion_error: mapped.vendor ?? { code: mapped.code, message: mapped.message },
+    },
+    httpStatus: mapped.httpStatus,
+    dispatch_outcome: 'accepted',
+    accepted_result: {
+      usage: normalizeBailianUsage(response.usage),
+      vendor_request_id: response.request_id,
+    },
+  });
 }
 
 function readCredential(ctx: InvokeCtx): BailianCredential {

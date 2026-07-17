@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { ModelDefinition } from '../account/model-definition/model-definition.entity';
 import { RequestLog } from '../request-log/request-log.entity';
 import { CostService } from './cost.service';
 import { BillingService } from './billing.service';
@@ -13,7 +12,7 @@ import { BillingController } from './billing.controller';
  * at write time.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([RequestLog, ModelDefinition])],
+  imports: [TypeOrmModule.forFeature([RequestLog])],
   controllers: [BillingController],
   providers: [CostService, BillingService],
   exports: [CostService, BillingService],

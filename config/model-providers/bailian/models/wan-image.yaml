@@ -1,0 +1,134 @@
+version: "1.0"
+provider_slug: bailian
+models:
+  - resource_uid: bd99eabb-03a5-4082-ad5d-95650013b2a8
+    revision: 1
+    model_id: bailian:wan2.6-t2i
+    provider_model_id: wan2.6-t2i
+    display_name: 万相 2.6 文生图
+    description: 万相 2.6 文生图，DashScope 同步接口，1-4 张图片。
+    task_types:
+      - gen.image
+    capabilities:
+      - image_gen
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs:
+      - bailian-dashscope-native
+    tags:
+      - 推荐
+      - 图像
+      - 文生图
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt, negative_prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [size, n], ui_zone: params }
+        - { id: advanced, label: 高级, fields: [prompt_extend, watermark, seed], ui_zone: advanced }
+      properties:
+        prompt: { type: text, label: 提示词, max_length: 2100 }
+        negative_prompt: { type: text, label: 反向提示词, max_length: 500 }
+        size:
+          type: enum
+          label: 尺寸
+          enum_options:
+            - { value: "1280*1280", label: "1280*1280" }
+            - { value: "1104*1472", label: "1104*1472" }
+            - { value: "1472*1104", label: "1472*1104" }
+            - { value: "960*1696", label: "960*1696" }
+            - { value: "1696*960", label: "1696*960" }
+        n: { type: integer, label: 张数, min: 1, max: 4, step: 1 }
+        prompt_extend: { type: boolean, label: 智能改写提示词 }
+        watermark: { type: boolean, label: 添加水印 }
+        seed: { type: integer, label: 随机种子, min: 0, max: 2147483647 }
+      required: [prompt]
+      defaults: { size: "1280*1280", n: 1, prompt_extend: true, watermark: false }
+    limits:
+      max_images_per_request: 4
+      max_prompt_chars: 2100
+      max_negative_prompt_chars: 500
+    pricing:
+      resource_uid: 74469f73-f5bd-4c0c-a4ed-33de38e64c46
+      revision: 1
+      currency: CNY
+      components:
+        - meter: image_count
+          per: 1
+          price: 0.12
+  - resource_uid: 29489d43-81cd-48d4-816d-9157d311493a
+    revision: 1
+    model_id: bailian:wan2.7-image-pro
+    provider_model_id: wan2.7-image-pro
+    display_name: 万相 2.7 图像 Pro
+    description: 万相 2.7 图像模型，支持文生图和多图编辑。
+    task_types:
+      - gen.image
+    capabilities:
+      - image_gen
+      - image_ref
+    invocation_mode: sync
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs:
+      - bailian-dashscope-native
+    tags:
+      - 旗舰
+      - 图像
+      - 编辑
+    input_contract:
+      default_mode: text_to_image
+      modes:
+        - id: text_to_image
+          label: 文生图
+        - id: image_to_image
+          label: 多图编辑
+          required_slots:
+            - slot: source_image
+              type: image
+              min: 1
+              max: 9
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt, negative_prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [size, n], ui_zone: params }
+        - { id: advanced, label: 高级, fields: [thinking_mode, watermark, seed], ui_zone: advanced }
+      properties:
+        prompt: { type: text, label: 提示词, max_length: 2100 }
+        negative_prompt: { type: text, label: 反向提示词, max_length: 500 }
+        size:
+          type: enum
+          label: 质量档位
+          enum_options:
+            - { value: 1K, label: 1K }
+            - { value: 2K, label: 2K }
+            - { value: 4K, label: 4K }
+        n: { type: integer, label: 张数, min: 1, max: 4, step: 1 }
+        thinking_mode: { type: boolean, label: 思考模式 }
+        watermark: { type: boolean, label: 添加水印 }
+        seed: { type: integer, label: 随机种子, min: 0, max: 2147483647 }
+      required: [prompt]
+      defaults: { size: 1K, n: 1, thinking_mode: true, watermark: false }
+    limits:
+      max_images_per_request: 4
+      max_prompt_chars: 2100
+      max_negative_prompt_chars: 500
+      max_reference_images: 9
+    pricing:
+      resource_uid: 402ec8df-6cf6-464e-88a9-756a9e731dc4
+      revision: 1
+      currency: CNY
+      components:
+        - meter: image_count
+          per: 1
+          price: 0.12

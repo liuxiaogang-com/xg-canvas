@@ -1,0 +1,18 @@
+version: "1.0"
+provider:
+  resource_uid: b47e8b04-09c1-4c6e-801c-b4efefc90f36
+  revision: 1
+  slug: openai
+  display_name: OpenAI
+  icon_url: /icons/openai.svg
+  homepage_url: https://platform.openai.com
+  auth_method: api_key
+  base_url: https://api.openai.com/v1
+  adapter_keys:
+    - openai-compat
+  invocation_methods:
+    - http
+  sdk_package: openai
+  supported_regions:
+    - global
+  description: OpenAI API；当前内置适配器支持 GPT 兼容文本对话与流式生成

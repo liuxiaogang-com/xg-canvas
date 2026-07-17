@@ -1,4 +1,5 @@
 import type { NodeSchema } from '../types';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 export interface GenAudioData {
   prompt: string;
@@ -36,7 +37,7 @@ export const genAudioSchema: NodeSchema<GenAudioData> = {
   buildTaskBody(data, upstream) {
     return {
       task_type: 'gen.audio',
-      model_id: data.model_id ?? 'openai:tts-1',
+      model_id: requireSelectedModel(data.model_id),
       params: { duration_sec: data.duration_sec, variant: data.variant },
       inputs: { mode: 'text_to_audio', prompt: upstream.prompt ?? data.prompt, references: [] },
     };

@@ -4,15 +4,25 @@
 
 import { api } from '../api/client';
 import type {
+  Capability,
+  CatalogVisibility,
+  ModelInputContract,
+  ProviderAuthMethod,
+  TaskType,
+} from '@xgcanvas/shared-types';
+import type {
   Channel,
-  ConfigSyncStatus,
+  CredentialCatalogView,
   CredentialView,
   DreaminaStatusView,
   DreaminaLoginStart,
   DreaminaLoginPoll,
   MemberStats,
   FeatureConfig,
+  FeatureConfigModelOption,
   ModelDefinition,
+  ModelInvocationMode,
+  ModelParamSchemaV1,
   ModelStats,
   ProjectStats,
   BillingOverview,
@@ -21,28 +31,154 @@ import type {
   ProviderStatusView,
   RequestLogRow,
   StatsOverview,
-  SyncResult,
   VendorModelList,
   ObjectStorageSettings,
   SmtpSettings,
 } from './types';
 
+export interface CreateModelInput {
+  provider_resource_uid: string;
+  model_id: string;
+  provider_model_id: string;
+  display_name: string;
+  description?: string;
+  icon_url?: string;
+  tags?: string[];
+  task_types: TaskType[];
+  capabilities: Capability[];
+  invocation_mode: ModelInvocationMode;
+  supports_streaming: boolean;
+  adapter_key: string;
+  allowed_channel_resource_uids: string[];
+  param_schema: ModelParamSchemaV1;
+  param_constraints: unknown[];
+  input_contract?: ModelInputContract;
+  poll_policy?: Record<string, unknown>;
+  limits?: Record<string, unknown>;
+  pricing?: Record<string, unknown> | null;
+  enabled?: boolean;
+  visibility?: CatalogVisibility;
+  deprecated_message?: string;
+  sort_order?: number;
+}
+
+export interface CreateProviderInput {
+  slug: string;
+  display_name: string;
+  icon_url?: string;
+  homepage_url?: string;
+  base_url?: string;
+  auth_method?: ProviderAuthMethod;
+  auth_config?: Record<string, unknown>;
+  invocation_methods?: string[];
+  adapter_keys: string[];
+  sdk_package?: string;
+  enabled?: boolean;
+  sort_order?: number;
+  description?: string;
+  documentation_url?: string;
+  supported_regions?: string[];
+}
+
+export type UpdateProviderInput = Partial<Omit<CreateProviderInput, 'slug'>> & {
+  expected_revision?: number;
+  reset_config_overrides?: Array<'base_url' | 'auth_config'>;
+};
+
+export interface CreateChannelInput {
+  slug: string;
+  display_name: string;
+  invocation_method: string;
+  adapter_keys: string[];
+  base_url?: string;
+  request_config?: Record<string, unknown>;
+  enabled?: boolean;
+  priority?: number;
+}
+
+export type UpdateChannelInput = Partial<Omit<CreateChannelInput, 'slug'>> & {
+  expected_revision?: number;
+  reset_config_overrides?: Array<
+    | 'base_url'
+    | 'request_config'
+  >;
+};
+
+export interface UpdateModelInput {
+  expected_revision?: number;
+  expected_rate_revision?: number;
+  provider_model_id?: string;
+  display_name?: string;
+  description?: string;
+  icon_url?: string;
+  tags?: string[];
+  task_types?: TaskType[];
+  capabilities?: string[];
+  invocation_mode?: string;
+  supports_streaming?: boolean;
+  adapter_key?: string;
+  allowed_channel_resource_uids?: string[];
+  param_schema?: Record<string, unknown>;
+  param_constraints?: unknown[];
+  input_contract?: Record<string, unknown>;
+  poll_policy?: Record<string, unknown>;
+  limits?: Record<string, unknown>;
+  pricing?: Record<string, unknown> | null;
+  enabled?: boolean;
+  visibility?: 'public' | 'internal' | 'hidden';
+  lifecycle?: 'active' | 'deprecated';
+  deprecated_message?: string;
+  sort_order?: number;
+}
+
+export interface ForkModelInput {
+  expected_source_revision: number;
+  new_model_id: string;
+  display_name?: string;
+}
+
 /* ── providers ───────────────────────────────────────────────── */
 export const providerApi = {
   list: () => api<Provider[]>('/admin/providers'),
-  get: (id: string) => api<Provider>(`/admin/providers/${id}`),
-  create: (body: Partial<Provider>) => api<Provider>('/admin/providers', { method: 'POST', body }),
-  update: (id: string, body: Partial<Provider>) => api<Provider>(`/admin/providers/${id}`, { method: 'PATCH', body }),
-  remove: (id: string) => api<void>(`/admin/providers/${id}`, { method: 'DELETE' }),
-  status: (id: string) => api<ProviderStatusView>(`/admin/providers/${id}/status`),
-  vendorModels: (id: string) => api<VendorModelList>(`/admin/providers/${id}/models`),
-  importModels: (id: string, model_ids: string[]) =>
-    api<{ created: string[]; skipped: string[] }>(`/admin/providers/${id}/models/import`, {
+  get: (resourceUid: string) => api<Provider>(`/admin/providers/${resourceUid}`),
+  create: (body: CreateProviderInput) => api<Provider>('/admin/providers', { method: 'POST', body }),
+  update: (resourceUid: string, body: UpdateProviderInput) => api<Provider>(`/admin/providers/${resourceUid}`, { method: 'PATCH', body }),
+  remove: (resourceUid: string) => api<void>(`/admin/providers/${resourceUid}`, { method: 'DELETE' }),
+  status: (resourceUid: string) => api<ProviderStatusView>(`/admin/providers/${resourceUid}/status`),
+  vendorModels: (
+    resourceUid: string,
+    channelResourceUid: string,
+    contractProfile: 'openai-text-chat-stream',
+  ) => {
+    const query = new URLSearchParams({
+      channel_resource_uid: channelResourceUid,
+      contract_profile: contractProfile,
+    });
+    return api<VendorModelList>(`/admin/providers/${resourceUid}/models?${query.toString()}`);
+  },
+  importModels: (
+    resourceUid: string,
+    channelResourceUid: string,
+    vendorModelIds: string[],
+    contract_profile: 'openai-text-chat-stream',
+  ) =>
+    api<{ created: string[]; skipped: string[] }>(`/admin/providers/${resourceUid}/models/import`, {
       method: 'POST',
-      body: { model_ids },
+      body: {
+        channel_resource_uid: channelResourceUid,
+        vendor_model_ids: vendorModelIds,
+        contract_profile,
+      },
     }),
-  probeModels: (id: string, api_key: string) =>
-    api<VendorModelList>(`/admin/providers/${id}/probe-models`, { method: 'POST', body: { api_key } }),
+  probeModels: (
+    resourceUid: string,
+    channelResourceUid: string,
+    api_key: string,
+    contract_profile: 'openai-text-chat-stream',
+  ) => api<VendorModelList>(`/admin/providers/${resourceUid}/probe-models`, {
+    method: 'POST',
+    body: { channel_resource_uid: channelResourceUid, api_key, contract_profile },
+  }),
 };
 
 export type ObjectStorageInput = {
@@ -87,38 +223,47 @@ export const smtpApi = {
 
 /* ── channels ────────────────────────────────────────────────── */
 export const channelApi = {
-  listByProvider: (providerId: string) => api<Channel[]>(`/admin/providers/${providerId}/channels`),
-  create: (providerId: string, body: Partial<Channel>) =>
-    api<Channel>(`/admin/providers/${providerId}/channels`, { method: 'POST', body }),
-  update: (id: string, body: Partial<Channel>) => api<Channel>(`/admin/channels/${id}`, { method: 'PATCH', body }),
-  remove: (id: string) => api<void>(`/admin/channels/${id}`, { method: 'DELETE' }),
+  listByProvider: (providerResourceUid: string) => api<Channel[]>(`/admin/providers/${providerResourceUid}/channels`),
+  create: (providerResourceUid: string, body: CreateChannelInput) =>
+    api<Channel>(`/admin/providers/${providerResourceUid}/channels`, { method: 'POST', body }),
+  update: (resourceUid: string, body: UpdateChannelInput) => api<Channel>(`/admin/channels/${resourceUid}`, { method: 'PATCH', body }),
+  remove: (resourceUid: string) => api<void>(`/admin/channels/${resourceUid}`, { method: 'DELETE' }),
 };
 
 /* ── credentials ─────────────────────────────────────────────── */
 export const credentialApi = {
-  listByChannel: (channelId: string) => api<CredentialView[]>(`/admin/channels/${channelId}/credentials`),
+  catalog: () => api<CredentialCatalogView>('/admin/credential-catalog'),
+  listByChannel: (channelResourceUid: string) => api<CredentialView[]>(`/admin/channels/${channelResourceUid}/credentials`),
   // backend DTO field is `credentials` (the encrypted payload); map from `payload` here.
-  create: (channelId: string, body: { label?: string; credential_type: string; payload: Record<string, string> }) =>
-    api<CredentialView>(`/admin/channels/${channelId}/credentials`, {
+  create: (
+    channelResourceUid: string,
+    body: {
+      label?: string;
+      credential_type: 'api_key' | 'cli_session';
+      payload: Record<string, string>;
+    },
+  ) =>
+    api<CredentialView>(`/admin/channels/${channelResourceUid}/credentials`, {
       method: 'POST',
       body: { label: body.label, credential_type: body.credential_type, credentials: body.payload },
     }),
   remove: (id: string) => api<void>(`/admin/credentials/${id}`, { method: 'DELETE' }),
   validate: (id: string) => api<CredentialView>(`/admin/credentials/${id}/validate`, { method: 'POST' }),
   balance: (id: string) => api<ProviderStatusView>(`/admin/credentials/${id}/balance`),
-  // Credential-centric add-key (auto default channel + enable selected models).
+  // Atomic onboarding for one exact Channel + Credential + selected models.
   addKey: (body: {
-    provider_id: string;
+    provider_resource_uid: string;
+    channel_resource_uid: string;
     label?: string;
     payload: Record<string, string>;
-    model_ids?: string[];
-    preset_model_ids?: string[];
+    vendor_model_ids?: string[];
+    vendor_model_profile?: 'openai-text-chat-stream';
+    preset_model_resource_uids?: string[];
   }) =>
     api<{
       credential: CredentialView;
-      credentials?: CredentialView[];
       imported?: { created: string[]; skipped: string[] };
-      enabledPresets?: number;
+      enabledPresets: number;
     }>('/admin/credentials', {
       method: 'POST',
       body,
@@ -129,17 +274,14 @@ export const credentialApi = {
 export const modelApi = {
   list: (all?: boolean) =>
     api<ModelDefinition[]>(`/admin/models${all ? '?all=true' : ''}`),
-  get: (id: string) => api<ModelDefinition>(`/admin/models/${id}`),
-  update: (id: string, body: Partial<ModelDefinition>) =>
-    api<ModelDefinition>(`/admin/models/${id}`, { method: 'PATCH', body }),
-  remove: (id: string) => api<void>(`/admin/models/${id}`, { method: 'DELETE' }),
-};
-
-/* ── config sync + registry ──────────────────────────────────── */
-export const configSyncApi = {
-  status: () => api<ConfigSyncStatus>('/admin/config-sync/status'),
-  sync: () => api<SyncResult>('/admin/config-sync/sync', { method: 'POST' }),
-  reloadRegistry: () => api<{ loaded: number; files: string[] }>('/admin/v1/registry/reload', { method: 'POST' }),
+  get: (resourceUid: string) => api<ModelDefinition>(`/admin/models/${resourceUid}`),
+  create: (body: CreateModelInput) =>
+    api<ModelDefinition>('/admin/models', { method: 'POST', body }),
+  update: (resourceUid: string, body: UpdateModelInput) =>
+    api<ModelDefinition>(`/admin/models/${resourceUid}`, { method: 'PATCH', body }),
+  fork: (resourceUid: string, body: ForkModelInput) =>
+    api<ModelDefinition>(`/admin/models/${resourceUid}/fork`, { method: 'POST', body }),
+  remove: (resourceUid: string) => api<void>(`/admin/models/${resourceUid}`, { method: 'DELETE' }),
 };
 
 /* ── dreamina CLI ────────────────────────────────────────────── */
@@ -182,8 +324,15 @@ export const statsApi = {
 /* ── feature model config ─────────────────────────────────────── */
 export const featureConfigApi = {
   list: () => api<FeatureConfig[]>('/admin/feature-configs'),
+  modelOptions: () => api<FeatureConfigModelOption[]>('/admin/feature-configs/model-options'),
   get: (key: string) => api<FeatureConfig>(`/admin/feature-configs/${encodeURIComponent(key)}`),
-  upsert: (key: string, body: Partial<FeatureConfig>) =>
+  upsert: (key: string, body: {
+    feature_key: string;
+    display_name: string;
+    description?: string;
+    model_resource_uids: string[];
+    enabled?: boolean;
+  }) =>
     api<FeatureConfig>(`/admin/feature-configs/${encodeURIComponent(key)}`, {
       method: 'PUT',
       body,

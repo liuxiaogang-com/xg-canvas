@@ -1,0 +1,87 @@
+version: "1.0"
+provider_slug: deepseek
+models:
+  - resource_uid: c2544731-144f-4206-ae8e-503538e0d3dc
+    revision: 1
+    model_id: deepseek:deepseek-v4-flash
+    provider_model_id: deepseek-v4-flash
+    display_name: DeepSeek V4 Flash
+    description: 快速经济版(默认会思考,可关思考更快更省),1M 上下文
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - json_mode
+      - structured_output
+      - tool_use
+      - streaming
+      - reasoning
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - deepseek-official
+    supports_streaming: true
+    tags:
+      - 推荐
+      - 高性价比
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 384000
+    pricing:
+      resource_uid: 15c8734f-1636-460e-ba96-5e73102a382f
+      revision: 1
+      currency: USD
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 0.14
+        - meter: cached_input_tokens
+          per: 1000000
+          price: 0.0028
+        - meter: output_tokens
+          per: 1000000
+          price: 0.28
+  - resource_uid: d84f9513-b493-4278-9aaf-4544b6cd734a
+    revision: 1
+    model_id: deepseek:deepseek-v4-pro
+    provider_model_id: deepseek-v4-pro
+    display_name: DeepSeek V4 Pro
+    description: 旗舰推理模型,复杂推理/代码/Agent 首选,1M 上下文
+    task_types:
+      - gen.text
+    capabilities:
+      - text_chat
+      - json_mode
+      - structured_output
+      - tool_use
+      - streaming
+      - reasoning
+    invocation_mode: stream
+    adapter_key: openai-compat
+    allowed_channel_slugs:
+      - deepseek-official
+    supports_streaming: true
+    tags:
+      - 旗舰
+      - 推理增强
+    param_schema:
+      extends: templates/text-generation
+    limits:
+      max_input_tokens: 1000000
+      max_output_tokens: 384000
+    pricing:
+      resource_uid: b397c97c-7108-4ee9-84cf-5d070e915c6f
+      revision: 1
+      currency: USD
+      components:
+        - meter: input_tokens
+          per: 1000000
+          price: 0.435
+        - meter: cached_input_tokens
+          per: 1000000
+          price: 0.003625
+        - meter: output_tokens
+          per: 1000000
+          price: 0.87

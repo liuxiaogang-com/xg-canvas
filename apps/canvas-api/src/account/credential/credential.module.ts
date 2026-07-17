@@ -1,20 +1,31 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ModelChannel } from '../channel/channel.entity';
-import { ModelProvider } from '../provider/provider.entity';
-import { ModelDefinition } from '../model-definition/model-definition.entity';
+import { CatalogModule } from '../catalog/catalog.module';
 import { DreaminaModule } from '../dreamina/dreamina.module';
 import { ModelCredential } from './credential.entity';
 import { CredentialService } from './credential.service';
+import { CredentialCatalogService } from './credential-catalog.service';
 import { CredentialController } from './credential.controller';
-import { EncryptionService } from './encryption.service';
-import { EncryptionKeyringStore } from './encryption-keyring.store';
+import { CredentialVendorStatusService } from './credential-vendor-status.service';
+import { EncryptionModule } from './encryption.module';
 import { ProviderModelsService } from './provider-models.service';
+import { ProviderCatalogWritesService } from './provider-catalog-writes.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ModelCredential, ModelChannel, ModelProvider, ModelDefinition]), DreaminaModule],
+  imports: [
+    TypeOrmModule.forFeature([ModelCredential]),
+    CatalogModule,
+    DreaminaModule,
+    EncryptionModule,
+  ],
   controllers: [CredentialController],
-  providers: [CredentialService, EncryptionKeyringStore, EncryptionService, ProviderModelsService],
-  exports: [CredentialService, EncryptionService],
+  providers: [
+    CredentialService,
+    CredentialVendorStatusService,
+    CredentialCatalogService,
+    ProviderCatalogWritesService,
+    ProviderModelsService,
+  ],
+  exports: [CredentialService, EncryptionModule],
 })
 export class CredentialModule {}

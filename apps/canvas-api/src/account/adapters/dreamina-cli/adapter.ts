@@ -7,7 +7,7 @@ import {
   type UnifiedResponse,
   AdapterError,
 } from '@xgcanvas/adapters-contract';
-import { ERROR_CODES, type TaskType } from '@xgcanvas/shared-types';
+import { BUILTIN_ADAPTER_CAPABILITIES, ERROR_CODES } from '@xgcanvas/shared-types';
 
 import { clampPollDelay } from '../_shared/async-poller';
 import { mapVendorError } from '../_shared/error-mapper';
@@ -15,7 +15,7 @@ import type { DreaminaCliRunner } from '../../dreamina/dreamina-cli.runner';
 import type { ObjectStorageClient } from '../../storage/object-storage.client';
 import { LocalMediaSession } from './local-media';
 
-const CAPS: readonly TaskType[] = ['gen.image', 'gen.video'];
+const CAPS = BUILTIN_ADAPTER_CAPABILITIES['dreamina-cli'];
 
 /**
  * 即梦 CLI adapter — directly spawns the dreamina binary via
@@ -165,7 +165,8 @@ function buildCommand(
     for (const ref of refs) {
       if (!ref.url) continue;
       if (ref.type === 'video' || ref.slot === 'source_video') flags.push(`--video=${ref.url}`);
-      else if (ref.type === 'audio' || ref.slot === 'driving_audio') flags.push(`--audio=${ref.url}`);
+      else if (ref.type === 'audio' || ref.slot === 'driving_audio')
+        flags.push(`--audio=${ref.url}`);
       else flags.push(`--image=${ref.url}`);
     }
     const hasVisual = flags.some((f) => f.startsWith('--image=') || f.startsWith('--video='));
@@ -201,28 +202,24 @@ async function withLocalMedia(
 ): Promise<UnifiedRequest> {
   const refs = references(req);
   if (refs.length === 0) return req;
-  const next = await mapWithConcurrency(
-    refs,
-    3,
-    async (ref) => {
-      if (!ref.url) return ref;
-      if (!(await isTrustedReadUrl(ref.url))) {
-        throw new AdapterError({
-          code: ERROR_CODES.CONSTRAINT_VIOLATION,
-          message: 'Dreamina media URL is not signed by the active XG Canvas object store',
-          retryable: false,
-        });
-      }
-      if (!/^https?:\/\//i.test(ref.url)) {
-        throw new AdapterError({
-          code: ERROR_CODES.CONSTRAINT_VIOLATION,
-          message: 'Dreamina media references must not contain local paths',
-          retryable: false,
-        });
-      }
-      return { ...ref, url: await session.fetch(ref.url, signal) };
-    },
-  );
+  const next = await mapWithConcurrency(refs, 3, async (ref) => {
+    if (!ref.url) return ref;
+    if (!(await isTrustedReadUrl(ref.url))) {
+      throw new AdapterError({
+        code: ERROR_CODES.CONSTRAINT_VIOLATION,
+        message: 'Dreamina media URL is not signed by the active XG Canvas object store',
+        retryable: false,
+      });
+    }
+    if (!/^https?:\/\//i.test(ref.url)) {
+      throw new AdapterError({
+        code: ERROR_CODES.CONSTRAINT_VIOLATION,
+        message: 'Dreamina media references must not contain local paths',
+        retryable: false,
+      });
+    }
+    return { ...ref, url: await session.fetch(ref.url, signal) };
+  });
   return { ...req, inputs: { ...req.inputs, references: next } };
 }
 
@@ -232,7 +229,7 @@ function references(req: UnifiedRequest): Ref[] {
 
 function imagePaths(refs: Ref[]): string[] {
   return refs
-    .filter((r) => r.url && (r.type === undefined || r.type === 'image' || r.type === 'image_list'))
+    .filter((r) => r.url && (r.type === 'image' || r.type === 'image_list'))
     .map((r) => r.url as string);
 }
 

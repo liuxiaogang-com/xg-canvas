@@ -1,4 +1,5 @@
 import type { NodeSchema } from '../types';
+import { requireSelectedModel } from './model-selection';
 
 export interface EntityNodeData {
   name: string;
@@ -29,6 +30,12 @@ function makeSchema(
       { id: 'image', type: 'image' },
     ],
     defaultData: { ...baseDefault },
+    form: {
+      taskType: 'gen.image',
+      prompt: { field: 'description', placeholder: `描述${title.replace('节点', '')}外观`, mention: true },
+      cost: true,
+      submit: { label: '生成效果图' },
+    },
     pillActions: [
       { id: 'generate_image', label: '生成效果图', icon: '✨' },
       { id: 'rename', label: '改名', icon: '✎' },
@@ -40,7 +47,7 @@ function makeSchema(
     buildTaskBody(data) {
       return {
         task_type: 'gen.image',
-        model_id: data.model_id ?? 'doubao:seedream-image',
+        model_id: requireSelectedModel(data.model_id),
         params: { aspect_ratio: '1:1', resolution: '1k' },
         inputs: { mode: 'text_to_image', prompt: `${data.name} — ${data.description}`, references: [] },
       };

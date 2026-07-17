@@ -1,4 +1,5 @@
 import type { NodeSchema } from '../types';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 export interface GenTextData {
   prompt: string;
@@ -36,7 +37,7 @@ export const genTextSchema: NodeSchema<GenTextData> = {
   buildTaskBody(data, upstream) {
     return {
       task_type: 'gen.text',
-      model_id: data.model_id ?? 'openai:gpt-4o-mini',
+      model_id: requireSelectedModel(data.model_id),
       params: { temperature: data.temperature, max_tokens: data.max_tokens },
       inputs: {
         prompt: upstream.prompt ?? data.prompt,

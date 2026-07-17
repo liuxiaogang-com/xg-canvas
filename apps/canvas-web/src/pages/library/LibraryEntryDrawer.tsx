@@ -112,11 +112,11 @@ export default function LibraryEntryDrawer({ entry, onClose, onChanged }: Props)
             <ul className="space-y-1 mb-2">
               {entry.provider_refs.map((p) => (
                 <li
-                  key={`${p.provider}:${p.external_ref_id}`}
+                  key={`${p.provider_resource_uid}:${p.external_ref_id}`}
                   className="flex items-center gap-2 text-xs"
                 >
                   <span className="px-1.5 py-0.5 rounded bg-canvas-panel-2 text-text-2">
-                    {p.provider}
+                    {p.provider_resource_uid}
                   </span>
                   <span className="text-text-2 truncate flex-1">{p.external_ref_id}</span>
                   <span className="text-text-3">{p.status}</span>

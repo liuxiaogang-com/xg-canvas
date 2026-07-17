@@ -1,18 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, type EntityManager } from 'typeorm';
+import type { ChannelRouteSnapshot } from '@xgcanvas/shared-types';
 
 import type { ProducedAsset } from '../account-client';
 import { AccountInvokeClient } from '../account-client';
 import { AssetService } from '../asset/asset.service';
 import { Task } from '../database/entities';
+import {
+  RequestLogService,
+  type FinalizePendingRequestLog,
+} from '../request-log/request-log.service';
 import { TaskNodeWritebackService } from './task-node-writeback.service';
+import { requireTaskModelPin } from './task-model-pin';
 
 export interface TaskSuccessResult {
   assets: ProducedAsset[];
   text?: string;
   json?: unknown;
-  channel_id?: string;
+  channel_resource_uid?: string;
+  channel_revision_id?: string;
+  channel_route?: ChannelRouteSnapshot;
   credential_id?: string;
+  usage?: Record<string, unknown> | null;
 }
 
 /** Owns all terminal task transitions and their transactional projections. */
@@ -25,13 +34,14 @@ export class TaskTerminalService {
     private readonly assets: AssetService,
     private readonly writeback: TaskNodeWritebackService,
     private readonly invoke: AccountInvokeClient,
+    private readonly requestLogs: RequestLogService,
   ) {}
 
   async succeed(taskId: string, leaseToken: string, result: TaskSuccessResult): Promise<boolean> {
     try {
-      const committed = await this.ds.transaction(async (manager) => {
+      const completed = await this.ds.transaction(async (manager) => {
         const task = await this.lockLeased(manager, taskId, leaseToken);
-        if (!task) return false;
+        if (!task) return null;
         const assetIds = await this.assets.persistProduced(task, result.assets, manager);
         const updated = await updateTerminal(manager, taskId, leaseToken, 'succeeded', {
           output_asset_ids: assetIds,
@@ -39,15 +49,32 @@ export class TaskTerminalService {
           json_output: result.json ?? null,
           progress: 1,
           error: null,
-          channel_id: result.channel_id,
+          channel_resource_uid: result.channel_resource_uid,
+          channel_revision_id: result.channel_revision_id,
+          channel_route: result.channel_route,
           credential_id: result.credential_id,
         });
-        if (!updated) return false;
+        if (!updated) return null;
         await this.writeback.applyTerminal(updated, manager);
-        return true;
+        if (updated.invoke_request_id) {
+          const finalized = await this.requestLogs.finalizePending(
+            updated.invoke_request_id,
+            {
+              status: 'success',
+              usage: result.usage,
+              response_body: { text: result.text ?? '' },
+            },
+            manager,
+          );
+          assertInvokeFinalized(updated.invoke_request_id, finalized);
+        }
+        return updated;
       });
-      if (!committed) await this.assets.discardProduced(result.assets);
-      return committed;
+      if (!completed) {
+        await this.assets.discardProduced(result.assets);
+        return false;
+      }
+      return true;
     } catch (error) {
       await this.assets.discardProduced(result.assets);
       throw error;
@@ -63,6 +90,18 @@ export class TaskTerminalService {
       });
       if (!updated) return null;
       await this.writeback.applyTerminal(updated, manager);
+      if (updated.invoke_request_id) {
+        const finalized = await this.requestLogs.finalizePending(
+          updated.invoke_request_id,
+          {
+            status: code === 'VENDOR_TIMEOUT' ? 'timeout' : 'error',
+            error_code: code,
+            error_message: message,
+          },
+          manager,
+        );
+        assertInvokeFinalized(updated.invoke_request_id, finalized);
+      }
       return updated;
     });
     if (!task) return false;
@@ -91,12 +130,31 @@ export class TaskTerminalService {
       );
       const updated = firstRow<Task>(updatedRows) ?? current;
       await this.writeback.applyTerminal(updated, manager);
+      if (updated.status === 'cancelled' && updated.invoke_request_id) {
+        const finalized = await this.requestLogs.finalizePending(
+          updated.invoke_request_id,
+          {
+            status: 'cancelled',
+          },
+          manager,
+        );
+        assertInvokeFinalized(updated.invoke_request_id, finalized);
+      }
       return { task: updated, transitioned: updated.status === 'cancelled' };
     });
 
     if (!outcome) return null;
-    if (outcome.transitioned) this.cancelVendorBestEffort(outcome.task);
+    if (outcome.transitioned) {
+      this.cancelVendorBestEffort(outcome.task);
+    }
     return outcome.task;
+  }
+
+  async finalizeInvokeRequest(
+    requestId: string,
+    patch: FinalizePendingRequestLog,
+  ): Promise<boolean> {
+    return this.requestLogs.finalizePending(requestId, patch);
   }
 
   private async lockLeased(
@@ -115,12 +173,27 @@ export class TaskTerminalService {
   }
 
   private cancelVendorBestEffort(task: Task): void {
-    if (!task.external_task_id || !task.channel_id || !task.credential_id) return;
+    if (
+      task.execution_mode !== 'live' ||
+      !task.external_task_id ||
+      !task.channel_resource_uid ||
+      !task.channel_revision_id ||
+      !task.channel_route ||
+      !task.credential_id
+    )
+      return;
     this.invoke
       .cancel({
+        ...requireTaskModelPin(task),
+        task_id: task.id,
         external_task_id: task.external_task_id,
         model_id: task.model_id,
-        channel_id: task.channel_id,
+        workspace_id: task.workspace_id,
+        owner_id: task.owner_id,
+        project_id: task.project_id ?? undefined,
+        channel_resource_uid: task.channel_resource_uid,
+        channel_revision_id: task.channel_revision_id,
+        channel_route: task.channel_route,
         credential_id: task.credential_id,
       })
       .catch((error) => {
@@ -142,7 +215,9 @@ async function updateTerminal(
     json_output?: unknown;
     progress?: number | null;
     error?: Task['error'];
-    channel_id?: string;
+    channel_resource_uid?: string;
+    channel_revision_id?: string;
+    channel_route?: ChannelRouteSnapshot;
     credential_id?: string;
   },
 ): Promise<Task | null> {
@@ -154,8 +229,10 @@ async function updateTerminal(
             json_output = CASE WHEN $7::boolean THEN $8::jsonb ELSE json_output END,
             progress = CASE WHEN $9::boolean THEN $10::real ELSE progress END,
             error = CASE WHEN $11::boolean THEN $12::jsonb ELSE error END,
-            channel_id = COALESCE($13::uuid, channel_id),
-            credential_id = COALESCE($14::uuid, credential_id),
+            channel_resource_uid = COALESCE($13::uuid, channel_resource_uid),
+            channel_revision_id = COALESCE($14::uuid, channel_revision_id),
+            channel_route = COALESCE($15::jsonb, channel_route),
+            credential_id = COALESCE($16::uuid, credential_id),
             finished_at = NOW(), next_poll_at = NULL,
             lease_token = NULL, lease_expires_at = NULL, updated_at = NOW()
       WHERE id = $1 AND lease_token = $2
@@ -174,7 +251,9 @@ async function updateTerminal(
       patch.progress ?? null,
       'error' in patch,
       patch.error == null ? null : JSON.stringify(patch.error),
-      patch.channel_id ?? null,
+      patch.channel_resource_uid ?? null,
+      patch.channel_revision_id ?? null,
+      patch.channel_route ? JSON.stringify(patch.channel_route) : null,
       patch.credential_id ?? null,
     ],
   );
@@ -182,7 +261,12 @@ async function updateTerminal(
 }
 
 function firstRow<T>(result: unknown): T | undefined {
-  if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0]) && typeof result[1] === 'number') {
+  if (
+    Array.isArray(result) &&
+    result.length === 2 &&
+    Array.isArray(result[0]) &&
+    typeof result[1] === 'number'
+  ) {
     return result[0][0] as T | undefined;
   }
   return Array.isArray(result) ? (result[0] as T | undefined) : undefined;
@@ -190,4 +274,8 @@ function firstRow<T>(result: unknown): T | undefined {
 
 function isTerminal(status: string): boolean {
   return status === 'succeeded' || status === 'failed' || status === 'cancelled';
+}
+
+function assertInvokeFinalized(requestId: string, finalized: boolean): void {
+  if (!finalized) throw new Error(`pending invoke request log is missing: ${requestId}`);
 }

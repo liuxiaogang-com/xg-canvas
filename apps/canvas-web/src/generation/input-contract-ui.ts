@@ -82,14 +82,14 @@ export function ensureInputMode(
   return contract?.default_mode ?? modes[0]?.id ?? null;
 }
 
-export function preferredModelId<T extends { id: string; input_contract?: ModelInputContract }>(
+export function preferredModelId<T extends { model_id: string; input_contract?: ModelInputContract }>(
   models: T[],
 ): string | null {
   return (
     models.find((model) =>
       model.input_contract?.modes?.some((mode) => (mode.required_slots?.length ?? 0) === 0),
-    )?.id ??
-    models[0]?.id ??
+    )?.model_id ??
+    models[0]?.model_id ??
     null
   );
 }
@@ -112,20 +112,14 @@ export function defaultParamValue(spec: ParamSpec): unknown {
   return spec.default ?? spec.options?.[0]?.value;
 }
 
-export function displayModelVersion(value: unknown): string {
+export function displayModelVersion(
+  spec: ParamSpec | null | undefined,
+  value: unknown,
+): string {
   const raw = String(value ?? '').trim();
   if (!raw) return '选择模型';
-  if (/^\d+(?:\.\d+)?$/.test(raw)) return `Seedream ${raw}`;
-  const seedance = raw.match(/^seedance(\d+(?:\.\d+)?)(fast)?(?:_(vip))?(?:([a-z]+))?$/i);
-  if (seedance) {
-    const [, version, fast, vip, suffix] = seedance;
-    const parts = [`Seedance ${version}`];
-    if (fast) parts.push('Fast');
-    if (suffix) parts.push(titleCase(suffix));
-    if (vip) parts.push('VIP');
-    return parts.join(' ');
-  }
-  return raw;
+  const option = spec?.options?.find((candidate) => String(candidate.value) === String(value));
+  return option?.label.trim() || raw;
 }
 
 export function modeContract(
@@ -267,8 +261,4 @@ function humanizeMode(id: string): string {
     .filter(Boolean)
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function titleCase(value: string): string {
-  return value.slice(0, 1).toUpperCase() + value.slice(1).toLowerCase();
 }

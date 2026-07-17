@@ -1,16 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-
-import { ModelChannel } from '../channel/channel.entity';
-import { ModelProvider } from '../provider/provider.entity';
-import { ModelDefinition } from '../model-definition/model-definition.entity';
-import { RegistryBootstrapService } from '../registry/registry-bootstrap.service';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  isCatalogCurrentLifecycle,
+  redactSecretText,
+  type CatalogModelOffering,
+} from '@xgcanvas/model-catalog';
+import { guardedFetch } from '../../common/http/guarded-outbound';
+import { CatalogReadService } from '../catalog';
+import { RegistryBootstrapService, RegistryService } from '../registry';
+import { ModelCredential } from './credential.entity';
+import { assertCredentialContract } from './credential-contract';
+import { presentCredential } from './credential.presenter';
 import { CredentialService, type CredentialView } from './credential.service';
+import { EncryptionService } from './encryption.service';
+import { ProviderCatalogWritesService } from './provider-catalog-writes.service';
+import {
+  maxVendorModelIdLength,
+  OPENAI_TEXT_VENDOR_PROFILE,
+  requireVendorContractAdapter,
+} from './vendor-model-contract';
+
+const MAX_VENDOR_RESPONSE_BYTES = 1_000_000;
+const MAX_VENDOR_MODELS = 500;
 
 export interface VendorModel {
   id: string;
-  /** Already present in our model_definitions for this provider. */
   imported: boolean;
 }
 
@@ -19,190 +32,316 @@ export interface VendorModelList {
   note?: string;
 }
 
-/**
- * Pull a provider's live model catalogue (GET {base}/models) and let the operator
- * enable selected entries as manual model_definitions. Reuses CredentialService for the
- * credential -> {base, apiKey} resolution so secrets stay in one place.
- */
+interface CredentialOnboardingInput {
+  provider_resource_uid: string;
+  channel_resource_uid: string;
+  label?: string;
+  payload: Record<string, string>;
+  vendor_model_ids?: string[];
+  vendor_model_profile?: string;
+  preset_model_resource_uids?: string[];
+}
+
 @Injectable()
 export class ProviderModelsService {
   constructor(
     private readonly credentials: CredentialService,
-    @InjectRepository(ModelProvider) private readonly providerRepo: Repository<ModelProvider>,
-    @InjectRepository(ModelDefinition) private readonly modelRepo: Repository<ModelDefinition>,
-    @InjectRepository(ModelChannel) private readonly channelRepo: Repository<ModelChannel>,
-    private readonly registry: RegistryBootstrapService,
+    private readonly catalog: CatalogReadService,
+    private readonly registry: RegistryService,
+    private readonly registryBootstrap: RegistryBootstrapService,
+    private readonly catalogWrites: ProviderCatalogWritesService,
+    private readonly encryption: EncryptionService,
   ) {}
 
-  /**
-   * Probe a provider's /models with a RAW key (not yet stored) — the wizard's
-   * "一键获取模型". Doubles as a connectivity check: if it returns models, the key works.
-   */
-  async probeModels(providerId: string, apiKey: string): Promise<VendorModelList> {
-    const provider = await this.providerRepo.findOne({ where: { id: providerId } });
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
-    if (!apiKey) return { models: [], note: '请先填写 key' };
-    if (!provider.base_url) return { models: [], note: '该供应商未配置 base_url' };
-    const fetched = await this.fetchModelIds(provider.base_url, apiKey);
-    if (!fetched.ok) return { models: [], note: (fetched as { ok: false; note: string }).note };
-    const imported = new Set((await this.modelRepo.find({ where: { provider_id: providerId } })).map((m) => m.provider_model_id));
-    return { models: fetched.ids.map((id) => ({ id, imported: imported.has(id) })) };
+  async probeModels(
+    providerResourceUid: string,
+    channelResourceUid: string,
+    apiKey: string,
+    contractProfile = OPENAI_TEXT_VENDOR_PROFILE,
+  ): Promise<VendorModelList> {
+    if (!apiKey.trim()) return { models: [], note: '请先填写 key' };
+    const route = this.requireVendorChannel(
+      providerResourceUid,
+      channelResourceUid,
+      contractProfile,
+    );
+    const fetched = await this.fetchModelIds(
+      route.base,
+      apiKey.trim(),
+      maxVendorModelIdLength(route.providerSlug),
+    );
+    if (!fetched.ok) return { models: [], note: fetched.note };
+    return {
+      models: await this.markImported(providerResourceUid, fetched.ids),
+      note: ignoredModelNote(fetched.ignoredOversized),
+    };
   }
 
-  /**
-   * Credential-centric "add a key": ensure a default channel for the provider, create the
-   * (encrypted) credential under it, and enable the selected models. The channel layer is
-   * created transparently so the common path never touches it.
-   */
-  async addCredentialWithModels(dto: {
-    provider_id: string;
-    label?: string;
-    payload: Record<string, string>;
-    model_ids?: string[];
-    preset_model_ids?: string[];
-  }): Promise<{
+  async addCredentialWithModels(dto: CredentialOnboardingInput): Promise<{
     credential: CredentialView;
-    credentials: CredentialView[];
     imported?: { created: string[]; skipped: string[] };
-    enabledPresets?: number;
+    enabledPresets: number;
   }> {
-    const provider = await this.providerRepo.findOne({ where: { id: dto.provider_id } });
-    if (!provider) throw new NotFoundException(`Provider ${dto.provider_id} not found`);
-    const channels = await this.ensureProviderChannels(provider);
-    const credentials: CredentialView[] = [];
-    for (const channel of channels) {
-      credentials.push(
-        await this.credentials.create(channel.id, {
+    const vendorIds = dto.vendor_model_ids ?? [];
+    const presetUids = dto.preset_model_resource_uids ?? [];
+
+    const result = await this.registryBootstrap.mutateLocal(async (manager) => {
+      const prepared = await this.catalogWrites.prepareCredentialChannelInTransaction(
+        manager,
+        dto.provider_resource_uid,
+        dto.channel_resource_uid,
+        presetUids,
+        dto.vendor_model_profile,
+        vendorIds.length > 0,
+      );
+      const credentialType = credentialTypeFor(prepared.provider.document.auth_method, dto.payload);
+      const encrypted = await this.encryption.encrypt(dto.payload);
+      const repo = manager.getRepository(ModelCredential);
+      const credential = await repo.save(
+        repo.create({
+          channel_resource_uid: dto.channel_resource_uid,
           label: dto.label,
-          credential_type: provider.auth_method === 'cli_login' ? 'cli_session' : 'api_key',
-          credentials: dto.payload,
+          credential_type: credentialType,
+          encrypted_payload: encrypted.encrypted,
+          encryption_key_id: encrypted.keyId,
+          payload_fields: Object.keys(dto.payload),
+          enabled: true,
         }),
       );
-    }
-    const imported = dto.model_ids?.length ? await this.importModels(dto.provider_id, dto.model_ids) : undefined;
-
-    const enabledPresets = dto.preset_model_ids?.length
-      ? await this.enablePresetModels(dto.provider_id, dto.preset_model_ids)
-      : 0;
-
-    return { credential: credentials[0], credentials, imported, enabledPresets };
-  }
-
-  /** Enable only the preset models the user selected in the wizard. */
-  private async enablePresetModels(providerId: string, modelIds: string[]): Promise<number> {
-    if (modelIds.length === 0) return 0;
-    const result = await this.modelRepo
-      .createQueryBuilder()
-      .update()
-      .set({ enabled: true })
-      .where('provider_id = :providerId', { providerId })
-      .andWhere("source != 'manual'")
-      .andWhere('id IN (:...modelIds)', { modelIds })
-      .andWhere('enabled = false')
-      .execute();
-    return result.affected ?? 0;
-  }
-
-  /** Reuse provider channels, or create a default one (transparent to the user). */
-  private async ensureProviderChannels(provider: ModelProvider): Promise<ModelChannel[]> {
-    const existing = await this.channelRepo.find({
-      where: { provider_id: provider.id, enabled: true },
-      order: { priority: 'ASC', created_at: 'ASC' },
+      const imported =
+        vendorIds.length > 0
+          ? await this.catalogWrites.importVendorModelsInTransaction(
+              manager,
+              dto.provider_resource_uid,
+              dto.channel_resource_uid,
+              vendorIds,
+              dto.vendor_model_profile,
+            )
+          : undefined;
+      const enabledPresets = await this.catalogWrites.enableOfficialModelsInTransaction(
+        manager,
+        dto.provider_resource_uid,
+        dto.channel_resource_uid,
+        presetUids,
+      );
+      return { credential, imported, enabledPresets };
     });
-    if (existing.length) return existing;
-    const ch = this.channelRepo.create({
-      provider_id: provider.id,
-      slug: `${provider.slug}-default`,
-      display_name: `${provider.display_name} 默认渠道`,
-      invocation_method: provider.invocation_methods?.[0] ?? 'http',
-      base_url: provider.base_url ?? null,
-      source: 'manual',
-    } as Partial<ModelChannel>);
-    const saved = await this.channelRepo.save(ch);
-    return [saved];
+    return {
+      credential: presentCredential(result.credential),
+      imported: result.imported,
+      enabledPresets: result.enabledPresets,
+    };
   }
 
-  /** Vendor /models list, each flagged with whether we've already imported it. */
-  async listVendorModels(providerId: string): Promise<VendorModelList> {
-    const ctx = await this.credentials.resolveProviderApiContext(providerId);
-    if (!ctx) return { models: [], note: '无可用 api_key 凭证' };
-    const fetched = await this.fetchModelIds(ctx.base, ctx.apiKey);
-    if (!fetched.ok) return { models: [], note: (fetched as { ok: false; note: string }).note };
-    const imported = new Set((await this.modelRepo.find({ where: { provider_id: providerId } })).map((m) => m.provider_model_id));
-    return { models: fetched.ids.map((id) => ({ id, imported: imported.has(id) })) };
+  async listVendorModels(
+    providerResourceUid: string,
+    channelResourceUid: string,
+    contractProfile = OPENAI_TEXT_VENDOR_PROFILE,
+  ): Promise<VendorModelList> {
+    const route = this.requireVendorChannel(
+      providerResourceUid,
+      channelResourceUid,
+      contractProfile,
+    );
+    const context = await this.credentials.resolveProviderApiContext(providerResourceUid, [
+      channelResourceUid,
+    ]);
+    if (!context) return { models: [], note: '所选渠道没有可用 api_key 凭证' };
+    const fetched = await this.fetchModelIds(
+      context.base,
+      context.apiKey,
+      maxVendorModelIdLength(route.providerSlug),
+    );
+    if (!fetched.ok) return { models: [], note: fetched.note };
+    return {
+      models: await this.markImported(providerResourceUid, fetched.ids),
+      note: ignoredModelNote(fetched.ignoredOversized),
+    };
   }
 
-  /** Enable selected vendor models as manual model_definitions. Idempotent. */
-  async importModels(providerId: string, ids: string[]): Promise<{ created: string[]; skipped: string[] }> {
-    const provider = await this.providerRepo.findOne({ where: { id: providerId } });
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
-    const existing = await this.modelRepo.find({ where: { provider_id: providerId } });
-    const imported = new Set(existing.map((m) => m.provider_model_id));
-    const created: string[] = [];
-    const skipped: string[] = [];
+  async importModels(
+    providerResourceUid: string,
+    channelResourceUid: string,
+    ids: string[],
+    contractProfile?: string,
+  ): Promise<{ created: string[]; skipped: string[] }> {
+    this.requireVendorChannel(providerResourceUid, channelResourceUid, contractProfile);
+    return this.catalogWrites.importVendorModels(
+      providerResourceUid,
+      channelResourceUid,
+      ids,
+      contractProfile,
+    );
+  }
 
-    for (const vid of ids) {
-      const modelId = `${provider.slug}:${vid}`;
-      if (imported.has(vid) || (await this.modelRepo.findOne({ where: { model_id: modelId } }))) {
-        skipped.push(vid);
-        continue;
-      }
-      // Reuse the same text-generation template the presets reference, so an imported
-      // model is consistent and immediately invokable through the registry union.
-      const row = this.modelRepo.create({
-        provider_id: providerId,
-        model_id: modelId,
-        provider_model_id: vid,
-        display_name: vid,
-        task_types: ['gen.text'],
-        capabilities: ['text_chat', 'streaming'],
-        invocation_mode: 'stream',
-        supports_streaming: true,
-        param_schema: { extends: 'templates/text-generation' } as never,
-        enabled: true,
-        source: 'manual',
-      } as Partial<ModelDefinition>);
-      try {
-        await this.modelRepo.save(row);
-        created.push(vid);
-      } catch (e) {
-        // A concurrent import may have inserted the same model_id first (unique). Treat the
-        // lost race as a skip rather than failing the whole batch.
-        if (isUniqueViolation(e)) skipped.push(vid);
-        else throw e;
-      }
+  private async markImported(providerResourceUid: string, ids: string[]): Promise<VendorModel[]> {
+    const models = await this.catalog.listCurrent<CatalogModelOffering>('model_offering');
+    const imported = new Set(
+      models
+        .filter((record) => record.document.provider_uid === providerResourceUid)
+        .map((record) => record.document.provider_model_id),
+    );
+    return ids.map((id) => ({ id, imported: imported.has(id) }));
+  }
+
+  private requireVendorChannel(
+    providerResourceUid: string,
+    channelResourceUid: string,
+    contractProfile?: string,
+  ): { base: string; providerSlug: string } {
+    const { provider, channel } = this.requireVendorChannelOwnership(
+      providerResourceUid,
+      channelResourceUid,
+    );
+    const adapterKey = requireVendorContractAdapter(contractProfile);
+    if (
+      !provider.document.adapter_keys.includes(adapterKey) ||
+      !channel.document.adapter_keys.includes(adapterKey)
+    ) {
+      throw new ConflictException(
+        `selected Channel does not support vendor contract adapter ${adapterKey}`,
+      );
     }
-    // Rebuild the runtime registry so the new manual models are immediately invokable
-    // (the snapshot is preset ∪ manual). Best-effort: the rows persist regardless.
-    if (created.length) {
-      await this.registry.reload({ syncDb: false }).catch(() => undefined);
+    const base = effectiveBaseUrl(channel, provider);
+    if (!base) throw new ConflictException('selected Channel has no effective base_url');
+    return { base, providerSlug: provider.document.slug };
+  }
+
+  private requireVendorChannelOwnership(providerResourceUid: string, channelResourceUid: string) {
+    const provider = this.registry.getProvider(providerResourceUid);
+    if (!provider || !isCatalogCurrentLifecycle(provider.document.lifecycle)) {
+      throw new NotFoundException(`Provider ${providerResourceUid} not found`);
     }
-    return { created, skipped };
+    const channel = this.registry.getChannel(channelResourceUid);
+    if (
+      !channel ||
+      channel.document.provider_uid !== providerResourceUid ||
+      !isCatalogCurrentLifecycle(channel.document.lifecycle)
+    ) {
+      throw new NotFoundException(`Channel ${channelResourceUid} not found for Provider`);
+    }
+    return { provider, channel };
   }
 
   private async fetchModelIds(
     base: string,
     apiKey: string,
-  ): Promise<{ ok: true; ids: string[] } | { ok: false; note: string }> {
+    maxIdLength: number,
+  ): Promise<{ ok: true; ids: string[]; ignoredOversized: number } | { ok: false; note: string }> {
     const url = `${base.replace(/\/$/, '')}/models`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
     try {
-      const res = await fetch(url, { headers: { authorization: `Bearer ${apiKey}` }, signal: ctrl.signal });
-      if (!res.ok) return { ok: false, note: `拉取失败(${res.status})` };
-      const j = (await res.json()) as { data?: { id?: string }[] };
-      const ids = (j.data ?? []).map((m) => m.id).filter((x): x is string => !!x);
-      return { ok: true, ids };
-    } catch (e) {
-      return { ok: false, note: (e as Error).message };
+      const response = await guardedFetch(url, {
+        headers: { authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) return { ok: false, note: `拉取失败(${response.status})` };
+      const body = await readVendorModelResponse(response);
+      const values = Array.isArray(body.data) ? body.data : [];
+      let ignoredOversized = 0;
+      const ids = [
+        ...new Set(
+          values.flatMap((model) => {
+            const id =
+              typeof model === 'object' && model && 'id' in model ? String(model.id).trim() : '';
+            if (!id) return [];
+            if (id.length > maxIdLength) {
+              ignoredOversized += 1;
+              return [];
+            }
+            return [id];
+          }),
+        ),
+      ].slice(0, MAX_VENDOR_MODELS);
+      return { ok: true, ids, ignoredOversized };
+    } catch (error) {
+      return { ok: false, note: redactSecretText((error as Error).message) };
     } finally {
       clearTimeout(timer);
     }
   }
 }
 
-/** Postgres unique-violation (SQLSTATE 23505), surfaced through the TypeORM driver error. */
-function isUniqueViolation(e: unknown): boolean {
-  const err = e as { code?: string; driverError?: { code?: string } };
-  return err?.code === '23505' || err?.driverError?.code === '23505';
+function ignoredModelNote(count: number): string | undefined {
+  return count > 0 ? `已忽略 ${count} 个超过本项目模型标识长度限制的厂商模型` : undefined;
+}
+
+function credentialTypeFor(
+  authMethod: string,
+  payload: Record<string, string>,
+): ModelCredential['credential_type'] {
+  if (authMethod === 'api_key') {
+    assertCredentialContract(authMethod, 'api_key', payload);
+    return 'api_key';
+  }
+  if (authMethod === 'cli_login') {
+    assertCredentialContract(authMethod, 'cli_session', payload);
+    return 'cli_session';
+  }
+  assertCredentialContract(authMethod, '', payload);
+  throw new Error('unreachable credential contract');
+}
+
+async function readVendorModelResponse(response: Response): Promise<{ data?: unknown[] }> {
+  const declared = Number(response.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_VENDOR_RESPONSE_BYTES) {
+    throw new Error('厂商模型列表响应过大');
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (Buffer.byteLength(text, 'utf8') > MAX_VENDOR_RESPONSE_BYTES) {
+      throw new Error('厂商模型列表响应过大');
+    }
+    return parseVendorModelResponse(text);
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_VENDOR_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new Error('厂商模型列表响应过大');
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return parseVendorModelResponse(new TextDecoder().decode(bytes));
+}
+
+function parseVendorModelResponse(text: string): { data?: unknown[] } {
+  const parsed = JSON.parse(text) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('厂商模型列表响应格式无效');
+  }
+  const data = 'data' in parsed ? (parsed as { data?: unknown }).data : undefined;
+  if (data !== undefined && !Array.isArray(data)) {
+    throw new Error('厂商模型列表 data 必须是数组');
+  }
+  return { data };
+}
+
+function effectiveBaseUrl(
+  channel: NonNullable<ReturnType<RegistryService['getChannel']>>,
+  provider: NonNullable<ReturnType<RegistryService['getProvider']>>,
+): string | null {
+  return (
+    stringValue(channel.config_overrides.base_url) ??
+    channel.document.base_url ??
+    stringValue(provider.config_overrides.base_url) ??
+    provider.document.base_url ??
+    null
+  );
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }

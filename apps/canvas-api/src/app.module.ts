@@ -8,12 +8,16 @@ import { AuthzModule } from './authz/authz.module';
 import { PermissionGuard } from './authz/permission.guard';
 import { AccountClientModule } from './account-client/account-client.module';
 import { AccountModule } from './account/account.module';
-import { ModelProvider } from './account/provider/provider.entity';
-import { ModelChannel } from './account/channel/channel.entity';
 import { ModelCredential } from './account/credential/credential.entity';
-import { FeatureModelConfig } from './account/feature-config/feature-config.entity';
+import {
+  FeatureModelBinding,
+  FeatureModelConfig,
+} from './account/feature-config/feature-config.entity';
 import { SystemSetting } from './account/storage/system-setting.entity';
-import { ModelDefinition } from './account/model-definition/model-definition.entity';
+import { CATALOG_ENTITIES } from './account/catalog/catalog.entities';
+import { ProviderInstallation } from './account/provider/provider-installation.entity';
+import { ChannelInstallation } from './account/channel/channel-installation.entity';
+import { ModelSettings } from './account/model-definition/model-settings.entity';
 import { RequestLog } from './request-log/request-log.entity';
 import { AssetModule } from './asset/asset.module';
 import { AuthModule } from './auth/auth.module';
@@ -79,14 +83,42 @@ import { SetupGuard } from './setup/setup.guard';
         url: config.get('DATABASE_URL', 'postgresql://xgcanvas:xgcanvas@localhost:5432/xgcanvas'),
         schema: 'canvas',
         entities: [
-          User, Workspace, WorkspaceMember, Project, Task, Asset, AssetUploadDraft, Favorite, LibraryEntry, PromptPreset,
-          Canvas, CanvasNode, CanvasEdge, CanvasSnapshot, CanvasEntity,
-          Conversation, Message,
-          AuthDevice, AuthSession, AuthIdentity, VerificationChallenge,
-          Permission, Role, RolePermission, RoleBinding, AuthzAudit,
+          User,
+          Workspace,
+          WorkspaceMember,
+          Project,
+          Task,
+          Asset,
+          AssetUploadDraft,
+          Favorite,
+          LibraryEntry,
+          PromptPreset,
+          Canvas,
+          CanvasNode,
+          CanvasEdge,
+          CanvasSnapshot,
+          CanvasEntity,
+          Conversation,
+          Message,
+          AuthDevice,
+          AuthSession,
+          AuthIdentity,
+          VerificationChallenge,
+          Permission,
+          Role,
+          RolePermission,
+          RoleBinding,
+          AuthzAudit,
           // account schema (M6): explicit @Entity({schema:'account'}) overrides the
           // connection default 'canvas', so one connection serves both schemas.
-          ModelProvider, ModelChannel, ModelCredential, ModelDefinition, FeatureModelConfig, SystemSetting,
+          ModelCredential,
+          ProviderInstallation,
+          ChannelInstallation,
+          ModelSettings,
+          FeatureModelConfig,
+          FeatureModelBinding,
+          SystemSetting,
+          ...CATALOG_ENTITIES,
           // ops schema — vendor request observability log
           RequestLog,
         ],

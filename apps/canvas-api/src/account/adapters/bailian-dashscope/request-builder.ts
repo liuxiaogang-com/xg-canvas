@@ -24,7 +24,11 @@ export function buildBailianImageRequest(req: UnifiedRequest): DashScopeImageReq
     { text: req.inputs.prompt ?? '' },
   ];
   const parameters = copyParams(params, IMAGE_PARAM_KEYS);
-  if (!parameters.size && typeof params.resolution === 'string' && params.resolution.includes('*')) {
+  if (
+    !parameters.size &&
+    typeof params.resolution === 'string' &&
+    params.resolution.includes('*')
+  ) {
     parameters.size = params.resolution;
   }
   return {
@@ -72,12 +76,17 @@ function buildMedia(req: UnifiedRequest): Array<{ type: string; url: string }> {
 function imageReferences(req: UnifiedRequest): RefWithUrl[] {
   return (req.inputs.references ?? []).filter((ref): ref is RefWithUrl => {
     if (!ref.url) return false;
-    return ref.type === undefined || ref.type === 'image' || ref.type === 'image_list';
+    return ref.type === 'image' || ref.type === 'image_list';
   });
 }
 
 function mediaType(slot: string): string | null {
-  if (slot === 'first_frame' || slot === 'last_frame' || slot === 'first_clip' || slot === 'driving_audio') {
+  if (
+    slot === 'first_frame' ||
+    slot === 'last_frame' ||
+    slot === 'first_clip' ||
+    slot === 'driving_audio'
+  ) {
     return slot;
   }
   if (slot === 'source_image') return 'first_frame';

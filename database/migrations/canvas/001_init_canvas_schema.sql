@@ -115,11 +115,23 @@ CREATE TABLE canvas.canvas_snapshots (
 CREATE TABLE canvas.tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type VARCHAR(60) NOT NULL,                      -- gen.text / gen.image / ...
-  status VARCHAR(20) NOT NULL DEFAULT 'pending',  -- pending|queued|running|succeeded|failed|cancelled
-  model_id VARCHAR(100) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled')),
+  model_id VARCHAR(200) NOT NULL,
+  model_resource_uid UUID NOT NULL,
+  model_revision_id UUID NOT NULL,
+  rate_card_revision_id UUID,
+  catalog_epoch BIGINT NOT NULL CHECK (catalog_epoch >= 0),
+  execution_mode VARCHAR(16) NOT NULL DEFAULT 'live'
+    CHECK (execution_mode IN ('live', 'demo')),
   external_task_id VARCHAR(200),
-  channel_id UUID,
-  credential_id UUID,
+  invoke_request_id UUID,
+  invoke_logical_request_id UUID,
+  invoke_prepared_at TIMESTAMPTZ,
+  channel_resource_uid UUID REFERENCES account.channel_installations(channel_resource_uid) ON DELETE RESTRICT,
+  channel_revision_id UUID,
+  channel_route JSONB,
+  credential_id UUID REFERENCES account.credentials(id) ON DELETE RESTRICT,
   source_node_id UUID REFERENCES canvas.canvas_nodes(id) ON DELETE SET NULL,
   project_id UUID REFERENCES canvas.projects(id) ON DELETE CASCADE,
   workspace_id UUID NOT NULL REFERENCES canvas.workspaces(id) ON DELETE CASCADE,
@@ -131,18 +143,64 @@ CREATE TABLE canvas.tasks (
   json_output JSONB,
   progress REAL,
   error JSONB,
-  retry_count INT NOT NULL DEFAULT 0,
+  retry_count INT NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
+  attempt_no INT NOT NULL DEFAULT 0 CHECK (attempt_no >= 0),
+  lease_token UUID,
+  lease_expires_at TIMESTAMPTZ,
   next_poll_at TIMESTAMPTZ,
   started_at TIMESTAMPTZ,
   finished_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_tasks_model_catalog_revision
+    FOREIGN KEY(model_resource_uid, model_revision_id)
+    REFERENCES account.catalog_resource_revisions(resource_uid, id) ON DELETE RESTRICT,
+  CONSTRAINT fk_tasks_rate_catalog_revision
+    FOREIGN KEY(rate_card_revision_id)
+    REFERENCES account.catalog_resource_revisions(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_tasks_credential_channel
+    FOREIGN KEY(channel_resource_uid, credential_id)
+    REFERENCES account.credentials(channel_resource_uid, id) ON DELETE RESTRICT,
+  CONSTRAINT fk_tasks_channel_catalog_revision
+    FOREIGN KEY(channel_resource_uid, channel_revision_id)
+    REFERENCES account.catalog_resource_revisions(resource_uid, id) ON DELETE RESTRICT,
+  CONSTRAINT ck_tasks_credential_channel_pair CHECK (
+    (channel_resource_uid IS NULL AND channel_revision_id IS NULL AND channel_route IS NULL AND credential_id IS NULL)
+    OR (channel_resource_uid IS NOT NULL AND channel_revision_id IS NOT NULL AND channel_route IS NOT NULL AND credential_id IS NOT NULL)
+  ),
+  CONSTRAINT ck_tasks_invoke_logical_pair CHECK (
+    (invoke_logical_request_id IS NULL AND invoke_prepared_at IS NULL)
+    OR (invoke_logical_request_id IS NOT NULL AND invoke_prepared_at IS NOT NULL)
+  ),
+  CONSTRAINT ck_tasks_external_correlation CHECK (
+    (external_task_id IS NULL AND invoke_request_id IS NULL)
+    OR (
+      external_task_id IS NOT NULL AND invoke_request_id IS NOT NULL
+      AND invoke_logical_request_id IS NOT NULL
+    )
+  ),
+  CONSTRAINT ck_tasks_lease_pair CHECK (
+    (lease_token IS NULL AND lease_expires_at IS NULL)
+    OR (lease_token IS NOT NULL AND lease_expires_at IS NOT NULL)
+  ),
+  CONSTRAINT ck_tasks_terminal_no_lease CHECK (
+    status NOT IN ('succeeded', 'failed', 'cancelled') OR lease_token IS NULL
+  )
 );
 CREATE INDEX idx_tasks_status_created ON canvas.tasks(status, created_at);
 CREATE INDEX idx_tasks_owner_status ON canvas.tasks(owner_id, status, created_at DESC);
 CREATE INDEX idx_tasks_project ON canvas.tasks(project_id);
+CREATE INDEX idx_tasks_model_revision ON canvas.tasks(model_revision_id);
+CREATE INDEX idx_tasks_invoke_logical ON canvas.tasks(invoke_logical_request_id)
+  WHERE invoke_logical_request_id IS NOT NULL;
 CREATE INDEX idx_tasks_running_poll ON canvas.tasks(status, next_poll_at)
   WHERE status IN ('queued','running');
+CREATE INDEX idx_tasks_invoke_claim
+  ON canvas.tasks(status, next_poll_at, lease_expires_at, created_at)
+  WHERE external_task_id IS NULL;
+CREATE INDEX idx_tasks_poll_claim
+  ON canvas.tasks(next_poll_at, lease_expires_at)
+  WHERE status = 'running' AND external_task_id IS NOT NULL;
 
 -- ------------------------------------------------------------
 -- 6. assets
@@ -174,6 +232,9 @@ CREATE TABLE canvas.assets (
 CREATE INDEX idx_assets_project_created ON canvas.assets(project_id, created_at DESC);
 CREATE INDEX idx_assets_workspace_created ON canvas.assets(workspace_id, created_at DESC);
 CREATE INDEX idx_assets_checksum ON canvas.assets(checksum_sha256);
+CREATE UNIQUE INDEX uk_assets_task_storage
+  ON canvas.assets(task_id, storage_key)
+  WHERE task_id IS NOT NULL AND deleted_at IS NULL;
 
 -- ------------------------------------------------------------
 -- 7. prompt_presets

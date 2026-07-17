@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { redactSecretText } from '@xgcanvas/model-catalog';
 
 import { CurrentUser, type AuthUser } from '../common/decorators/current-user';
 import { ChatService } from './chat.service';
@@ -54,7 +55,12 @@ export class ChatController {
     } catch (e) {
       const err = e as { message?: string };
       if (!ac.signal.aborted) {
-        res.write(`data: ${JSON.stringify({ type: 'error', message: err.message ?? '流式生成失败' })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'error',
+            message: redactSecretText(err.message ?? '流式生成失败'),
+          })}\n\n`,
+        );
       }
     } finally {
       if (!res.writableEnded) {

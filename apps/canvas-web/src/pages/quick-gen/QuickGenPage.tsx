@@ -181,6 +181,7 @@ export default function QuickGenPage() {
             state={cmd.state}
             specs={cmd.specs}
             inputContract={cmd.inputContract}
+            schemaReady={cmd.schemaReady}
             onModeChange={cmd.switchMode}
             onModelChange={cmd.setModel}
             onInputModeChange={cmd.setInputMode}

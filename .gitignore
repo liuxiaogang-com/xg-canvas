@@ -9,6 +9,8 @@ build/
 coverage/
 .turbo/
 .cache/
+.artifacts/
+/config/model-catalog.bundle.json
 **/.xgcanvas/
 .astro/
 .venv/

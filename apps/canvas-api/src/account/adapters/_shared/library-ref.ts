@@ -6,8 +6,8 @@ import {
 } from '@xgcanvas/shared-types';
 
 export interface ProviderRefCandidate {
-  provider: string;
-  channel_id: string;
+  provider_resource_uid: string;
+  channel_resource_uid: string;
   credential_id: string;
 }
 
@@ -21,25 +21,28 @@ export interface ProviderRefCandidate {
  * its own provider's binding over the material url:
  *
  *   const native = pickProviderRef(ref, {
- *     provider: 'volcengine', channel_id: ctx.channelId,
+ *     provider_resource_uid: providerUid,
+ *     channel_resource_uid: ctx.channel.resource_uid,
  *     credential_id: ctx.credential.id,
  *   });
  *   if (native) body.voice_id = native.external_ref_id;
- *   else body.audio_url = ref.url; // material fallback
+ *   else body.reference_urls = [ref.url]; // material fallback
  */
 export function pickProviderRef(
   ref: ResolvedGenerationReference,
   candidate: ProviderRefCandidate,
 ): ServerOwnedLibraryProviderRef | null {
-  const library = (ref.metadata as { library?: { provider_refs?: LibraryProviderRef[] } } | undefined)?.library;
+  const library = (
+    ref.metadata as { library?: { provider_refs?: LibraryProviderRef[] } } | undefined
+  )?.library;
   const candidates = library?.provider_refs ?? [];
   return (
     candidates.find(
       (providerRef): providerRef is ServerOwnedLibraryProviderRef =>
         isServerOwnedLibraryProviderRef(providerRef) &&
         providerRef.status === 'ready' &&
-        providerRef.provider === candidate.provider &&
-        providerRef.channel_id === candidate.channel_id &&
+        providerRef.provider_resource_uid === candidate.provider_resource_uid &&
+        providerRef.channel_resource_uid === candidate.channel_resource_uid &&
         providerRef.credential_id === candidate.credential_id,
     ) ?? null
   );

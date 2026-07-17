@@ -7,7 +7,6 @@ const INPUT_KEYS = new Set([
   'prompt_doc',
   'negative_prompt',
   'references',
-  'audio_url',
   'json',
 ]);
 const MAX_REFERENCES = 32;
@@ -64,12 +63,6 @@ export function validatePublicTaskInputs(inputs: Record<string, unknown>): void 
     }
     inputs.references.forEach((value, index) => validateReference(value, index));
   }
-
-  if (inputs.audio_url !== undefined && inputs.audio_url !== null && inputs.audio_url !== '') {
-    if (typeof inputs.audio_url !== 'string' || !isUUID(inputs.audio_url)) {
-      fail('inputs.audio_url must be an asset UUID; raw URLs are not accepted');
-    }
-  }
 }
 
 function validateReference(value: unknown, index: number): void {
@@ -86,8 +79,8 @@ function validateReference(value: unknown, index: number): void {
   if (typeof ref.slot !== 'string' || !ref.slot.trim() || ref.slot.length > MAX_SLOT_LENGTH) {
     fail(`inputs.references[${index}].slot is required`);
   }
-  if (ref.type !== undefined && (typeof ref.type !== 'string' || !REFERENCE_TYPES.has(ref.type))) {
-    fail(`inputs.references[${index}].type is invalid`);
+  if (typeof ref.type !== 'string' || !REFERENCE_TYPES.has(ref.type)) {
+    fail(`inputs.references[${index}].type is required and must be valid`);
   }
 
   const assetId = optionalUuid(ref.asset_id, `inputs.references[${index}].asset_id`);
@@ -98,7 +91,7 @@ function validateReference(value: unknown, index: number): void {
   if (Boolean(assetId) === Boolean(libraryId)) {
     fail(`inputs.references[${index}] must contain exactly one of asset_id or library_entry_id`);
   }
-  if (libraryId && ref.type !== undefined && ref.type !== 'library_ref') {
+  if (libraryId && ref.type !== 'library_ref') {
     fail(`inputs.references[${index}] with library_entry_id must use type "library_ref"`);
   }
   if (assetId && ref.type === 'library_ref') {

@@ -1,6 +1,7 @@
 import type { NodeSchema } from '../types';
 import { mapImageReferences } from '../_shared/generation-input';
 import { collectNodeParams } from '../_shared/task-params';
+import { requireSelectedModel } from '../_shared/model-selection';
 
 export interface GenImageData {
   mode: 'text_to_image' | 'image_to_image';
@@ -59,7 +60,7 @@ export const genImageSchema: NodeSchema<GenImageData> = {
     });
     return {
       task_type: 'gen.image',
-      model_id: data.model_id ?? 'doubao:seedream-image',
+      model_id: requireSelectedModel(data.model_id),
       params,
       inputs,
     };

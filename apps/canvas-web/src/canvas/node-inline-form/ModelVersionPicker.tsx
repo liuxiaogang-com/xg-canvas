@@ -48,7 +48,7 @@ export default function ModelVersionPicker({ spec, value, sourceLabel, onChange 
         aria-expanded={open}
         onClick={() => setOpen((currentOpen) => !currentOpen)}
       >
-        <span className="nif-select__value">{displayModelVersion(current)}</span>
+        <span className="nif-select__value">{displayModelVersion(spec, current)}</span>
         <span className="nif-select__caret">{Caret}</span>
       </button>
 
@@ -67,7 +67,7 @@ export default function ModelVersionPicker({ spec, value, sourceLabel, onChange 
               }}
             >
               {sourceLabel ? <span className="nif-model-version__source">{sourceLabel}</span> : null}
-              <span className="nif-model-version__name">{displayModelVersion(option.value)}</span>
+              <span className="nif-model-version__name">{displayModelVersion(spec, option.value)}</span>
             </button>
           ))}
         </div>

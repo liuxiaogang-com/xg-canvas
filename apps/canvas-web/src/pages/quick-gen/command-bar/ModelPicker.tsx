@@ -7,7 +7,7 @@ import { TASK_TYPE_BY_MODE, type GenMode } from '../types';
 interface Props {
   mode: GenMode;
   value: string | null;
-  onChange(v: string | null): void;
+  onChange(model: ModelSummary | null): void;
 }
 
 const Cube = (
@@ -29,14 +29,22 @@ export default function ModelPicker({ mode, value, onChange }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setOptions([]);
     modelApi
       .list(TASK_TYPE_BY_MODE[mode])
       .then((rows) => {
         if (cancelled) return;
         setOptions(rows);
-        if (!value && rows.length > 0) onChange(preferredModelId(rows));
+        const selectedId = value && rows.some((row) => row.model_id === value)
+          ? value
+          : preferredModelId(rows);
+        onChange(rows.find((row) => row.model_id === selectedId) ?? null);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (cancelled) return;
+        setOptions([]);
+        onChange(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -52,7 +60,7 @@ export default function ModelPicker({ mode, value, onChange }: Props) {
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
 
-  const selected = options.find((option) => option.id === value);
+  const selected = options.find((option) => option.model_id === value);
   const label = selected?.display_name ?? (value ? value.split('/').pop() ?? value : '选择生成类型');
 
   return (
@@ -65,18 +73,22 @@ export default function ModelPicker({ mode, value, onChange }: Props) {
       {open ? (
         <div className="qg-pop qg-pop--model">
           <div className="qg-pop__list">
-            {options.length === 0 ? <div className="qg-pop__opt">暂无可用生成类型</div> : null}
+            {options.length === 0 ? (
+              <div className="qg-pop__opt">
+                暂无可用生成类型 · <a href="/settings/credentials?add=1">配置供应商凭证</a>
+              </div>
+            ) : null}
             {options.map((o) => (
               <button
-                key={o.id}
+                key={o.model_resource_uid}
                 type="button"
-                className={`qg-pop__opt${o.id === value ? ' qg-pop__opt--active' : ''}`}
+                className={`qg-pop__opt${o.model_id === value ? ' qg-pop__opt--active' : ''}`}
                 onClick={() => {
-                  onChange(o.id);
+                  onChange(o);
                   setOpen(false);
                 }}
               >
-                <span className="qg-modelopt__name">{o.display_name || o.id}</span>
+                <span className="qg-modelopt__name">{o.display_name || o.model_id}</span>
               </button>
             ))}
           </div>

@@ -1,10 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { AccountInvokeClient } from '../account-client';
-import { FeatureConfigService } from '../account/feature-config/feature-config.service';
-import { RegistryService } from '../account/registry';
+import { AccountInvokeClient, AccountModelsClient } from '../account-client';
 import { RequestLogService } from './request-log.service';
 import type { RequestLog } from './request-log.entity';
+import { presentRequestLog } from './request-log.presenter';
 
 const SYSTEM_PROMPT = [
   '你是 XG Canvas 平台的运维助手。下面是一条对外厂商 API 请求的完整记录(已脱敏,不含密钥)。',
@@ -31,16 +30,15 @@ export class RequestLogAnalysisService {
   constructor(
     private readonly logs: RequestLogService,
     private readonly invoke: AccountInvokeClient,
-    private readonly registry: RegistryService,
-    private readonly featureConfig: FeatureConfigService,
+    private readonly models: AccountModelsClient,
   ) {}
 
   async analyzeOne(id: string, ownerId: string, workspaceId: string): Promise<AnalyzeResult> {
-    const log = await this.logs.get(id);
-    if (!log) throw new NotFoundException('日志不存在');
+    const stored = await this.logs.get(id);
+    if (!stored) throw new NotFoundException('日志不存在');
+    const log = presentRequestLog(stored);
 
-    const modelId = await this.pickModel();
-    if (!modelId) throw new BadRequestException('没有可用的文本模型用于分析');
+    const modelId = await this.models.requireFeatureModel('ai-analysis', 'gen.text');
 
     const summary = buildSingleSummary(log);
     const res = await this.invoke.invoke({
@@ -56,16 +54,13 @@ export class RequestLogAnalysisService {
           { role: 'user', content: summary },
         ],
       },
+      resolution: { kind: 'current' },
     });
     return {
       analysis: res.text ?? '(模型未返回内容)',
       model_id: modelId,
       request_id: (res as { request_id?: string }).request_id,
     };
-  }
-
-  private async pickModel(): Promise<string | null> {
-    return this.featureConfig.resolveModel('ai-analysis');
   }
 }
 
@@ -81,7 +76,7 @@ function buildSingleSummary(r: RequestLog): string {
     `时间: ${r.created_at?.toISOString?.() ?? '?'}`,
     `状态: ${r.status}${r.http_status != null ? ` (HTTP ${r.http_status})` : ''}`,
     `模型: ${r.model_id ?? '—'} / 供应商: ${r.provider_slug ?? '—'} / 适配器: ${r.adapter_key ?? '—'}`,
-    `凭证: ${r.credential_label ?? '—'} / 渠道: ${r.channel_id ?? '—'}`,
+    `凭证: ${r.credential_label ?? '—'} / 渠道: ${r.channel_resource_uid ?? '—'}`,
     `延迟: ${r.latency_ms != null ? `${r.latency_ms}ms` : '—'}`,
     `用量: ${r.usage ? clip(r.usage, 300) : '—'}`,
     `请求参数: ${clip(r.request_summary, 400)}`,

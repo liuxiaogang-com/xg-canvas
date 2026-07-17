@@ -23,7 +23,9 @@ export class LocalMediaSession {
     private readonly timeoutMs: number,
   ) {}
 
-  static async create(options: { maxBytes?: number; timeoutMs?: number } = {}): Promise<LocalMediaSession> {
+  static async create(
+    options: { maxBytes?: number; timeoutMs?: number } = {},
+  ): Promise<LocalMediaSession> {
     const dir = await mkdtemp(join(tmpdir(), 'xgcanvas-dreamina-'));
     return new LocalMediaSession(
       dir,
@@ -37,7 +39,10 @@ export class LocalMediaSession {
     const initial = parseHttpUrl(url);
     rejectSensitiveLiteralHost(initial);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error('reference media download timed out')), this.timeoutMs);
+    const timeout = setTimeout(
+      () => controller.abort(new Error('reference media download timed out')),
+      this.timeoutMs,
+    );
     const abortFromCaller = () => controller.abort(signal?.reason);
     signal?.addEventListener('abort', abortFromCaller, { once: true });
 
@@ -89,6 +94,10 @@ export class LocalMediaSession {
 }
 
 async function fetchSameOrigin(initial: URL, signal: AbortSignal): Promise<Response> {
+  // This path is intentionally separate from generic vendor HTTP. The adapter
+  // accepts only a presigned URL revalidated against the active object-store
+  // origin/path/signature immediately before this call; private S3-compatible
+  // endpoints therefore remain usable. Redirects are limited to that origin.
   let current = initial;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     const response = await fetch(current, { signal, redirect: 'manual' });
@@ -115,7 +124,8 @@ function parseHttpUrl(value: string): URL {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error('Dreamina reference must be an HTTP(S) asset URL');
   }
-  if (url.username || url.password) throw new Error('signed reference URL must not contain credentials');
+  if (url.username || url.password)
+    throw new Error('signed reference URL must not contain credentials');
   return url;
 }
 

@@ -1,0 +1,20 @@
+version: "1.0"
+provider:
+  resource_uid: cb776579-4999-4fec-8fd1-3464168c9c00
+  revision: 1
+  slug: bailian
+  display_name: 阿里云百炼
+  icon_url: /icons/bailian.svg
+  homepage_url: https://bailian.console.aliyun.com
+  auth_method: api_key
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  adapter_keys:
+    - openai-compat
+    - bailian-dashscope
+  invocation_methods:
+    - http
+  sdk_package: openai
+  supported_regions:
+    - cn
+    - global
+  description: 阿里云百炼模型服务平台：文本走 OpenAI 兼容协议，图像/视频走 DashScope 原生 API。

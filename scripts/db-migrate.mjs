@@ -1,91 +1,67 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const VALID_SCHEMAS = new Set(['account', 'canvas', 'ops']);
 const schemas = process.argv.slice(2);
-const selected = schemas.length ? schemas : ['account', 'canvas', 'ops'];
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   console.error('DATABASE_URL is required');
   process.exit(1);
 }
-for (const schema of selected) {
+for (const schema of schemas) {
   if (!VALID_SCHEMAS.has(schema)) {
     console.error(`Unknown migration schema: ${schema}`);
     process.exit(1);
   }
 }
+const requested = schemas.length ? new Set(schemas) : VALID_SCHEMAS;
+const selected = [...VALID_SCHEMAS].filter((schema) => requested.has(schema));
 
 const root = resolve('database', 'migrations');
-// Before the ledger existed, db:migrate executed every file directly. Adopt only
-// that last pre-ledger migration set when its durable schema marker is present.
-// Newer migrations are never inferred: they must commit together with a ledger row.
-const legacyBaselineSql = String.raw`
-\echo '==> detect pre-ledger migration history'
-INSERT INTO public.xgcanvas_schema_migrations (migration_key)
-SELECT migration_key
-FROM (
-  SELECT 'account/001_init_account_schema.sql' AS migration_key
-  WHERE to_regclass('account.providers') IS NOT NULL
-  UNION ALL
-  SELECT 'account/002_feature_model_config.sql'
-  WHERE to_regclass('account.feature_model_configs') IS NOT NULL
-  UNION ALL
-  SELECT 'account/003_model_input_contract.sql'
-  WHERE EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='account' AND table_name='model_definitions' AND column_name='input_contract'
-  )
-  UNION ALL
-  SELECT 'canvas/001_init_canvas_schema.sql'
-  WHERE to_regclass('canvas.users') IS NOT NULL
-  UNION ALL
-  SELECT 'canvas/002_chat_schema.sql'
-  WHERE to_regclass('canvas.conversations') IS NOT NULL
-  UNION ALL
-  SELECT 'canvas/003_session_schema.sql'
-  WHERE to_regclass('canvas.auth_sessions') IS NOT NULL
-  UNION ALL
-  SELECT 'canvas/004_identity_schema.sql'
-  WHERE to_regclass('canvas.auth_identities') IS NOT NULL
-  UNION ALL
-  SELECT 'canvas/005_authz_schema.sql'
-  WHERE to_regclass('canvas.roles') IS NOT NULL
-  UNION ALL
-  SELECT 'canvas/006_edge_unique.sql'
-  WHERE EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname='uk_edge_endpoints' AND conrelid=to_regclass('canvas.canvas_edges')
-  )
-  UNION ALL
-  SELECT 'canvas/007_drop_session_role.sql'
-  WHERE to_regclass('canvas.auth_sessions') IS NOT NULL
-    AND NOT EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_schema='canvas' AND table_name='auth_sessions' AND column_name='role'
-    )
-  UNION ALL
-  SELECT 'ops/001_init_ops_schema.sql'
-  WHERE to_regclass('ops.request_logs') IS NOT NULL
-  UNION ALL
-  SELECT 'ops/002_request_log_cost.sql'
-  WHERE EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='ops' AND table_name='request_logs' AND column_name='cost'
-  )
-) detected
-ON CONFLICT (migration_key) DO NOTHING;
-`;
 const chunks = [
   String.raw`\set ON_ERROR_STOP on
+SELECT pg_advisory_lock(hashtext('xgcanvas:schema-migrations'));
+DO $generation_guard$
+DECLARE current_generation integer;
+BEGIN
+  IF to_regclass('public.xgcanvas_schema_generation') IS NULL THEN
+    IF to_regclass('public.xgcanvas_schema_migrations') IS NOT NULL
+       OR EXISTS (
+         SELECT 1
+           FROM information_schema.tables
+          WHERE table_schema IN ('account', 'canvas', 'ops')
+       ) THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '55000',
+        MESSAGE = 'UNSUPPORTED_SCHEMA_GENERATION: this Beta requires a fresh PostgreSQL database';
+    END IF;
+  ELSE
+    EXECUTE 'SELECT generation FROM public.xgcanvas_schema_generation WHERE id = 1'
+      INTO current_generation;
+    IF current_generation IS DISTINCT FROM 2 THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '55000',
+        MESSAGE = 'UNSUPPORTED_SCHEMA_GENERATION: expected generation 2';
+    END IF;
+  END IF;
+END
+$generation_guard$;
+CREATE TABLE IF NOT EXISTS public.xgcanvas_schema_generation (
+  id smallint PRIMARY KEY CHECK (id = 1),
+  generation integer NOT NULL CHECK (generation > 0),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO public.xgcanvas_schema_generation(id, generation)
+VALUES (1, 2)
+ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS public.xgcanvas_schema_migrations (
   migration_key text PRIMARY KEY,
+  checksum char(64) NOT NULL,
   applied_at timestamptz NOT NULL DEFAULT now()
 );
-SELECT pg_advisory_lock(hashtext('xgcanvas:schema-migrations'));
-${legacyBaselineSql}
 `,
 ];
 
@@ -99,7 +75,20 @@ for (const schema of selected) {
   for (const file of files) {
     const migrationKey = `${schema}/${basename(file)}`;
     const sql = stripOuterTransaction(readFileSync(file, 'utf8'));
+    const checksum = createHash('sha256').update(sql, 'utf8').digest('hex');
     chunks.push(String.raw`
+DO $migration_checksum_guard$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.xgcanvas_schema_migrations
+     WHERE migration_key='${migrationKey}' AND checksum <> '${checksum}'
+  ) THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '55000',
+      MESSAGE = 'MIGRATION_CHECKSUM_MISMATCH: ${migrationKey}';
+  END IF;
+END
+$migration_checksum_guard$;
 SELECT EXISTS(
   SELECT 1 FROM public.xgcanvas_schema_migrations WHERE migration_key='${migrationKey}'
 ) AS migration_applied \gset
@@ -109,7 +98,8 @@ SELECT EXISTS(
   \echo '==> apply ${migrationKey}'
   BEGIN;
 ${sql}
-  INSERT INTO public.xgcanvas_schema_migrations (migration_key) VALUES ('${migrationKey}');
+  INSERT INTO public.xgcanvas_schema_migrations (migration_key, checksum)
+  VALUES ('${migrationKey}', '${checksum}');
   COMMIT;
 \endif
 `);
@@ -121,8 +111,12 @@ const result = spawnSync('psql', [databaseUrl], {
   input: chunks.join('\n'),
   encoding: 'utf8',
   stdio: ['pipe', 'inherit', 'inherit'],
-  shell: process.platform === 'win32',
+  shell: false,
 });
+if (result.error) {
+  console.error(`Failed to start psql: ${result.error.message}`);
+  process.exit(1);
+}
 if (result.status !== 0) process.exit(result.status ?? 1);
 
 function stripOuterTransaction(sql) {

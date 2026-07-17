@@ -1,92 +1,154 @@
-/* Settings (merged account-admin) types — mirror canvas-api account entities. */
+/* Settings views returned by the Catalog-backed canvas-api admin surface. */
+
+import type {
+  Capability,
+  CatalogOrigin,
+  CatalogVisibility,
+  ProviderAuthMethod,
+  TaskType,
+} from '@xgcanvas/shared-types';
+
+export type ModelInvocationMode = 'sync' | 'async' | 'stream';
+
+export interface ModelParamSchemaV1 {
+  version: '1.0';
+  groups: unknown[];
+  properties: Record<string, unknown>;
+  required: string[];
+  defaults: Record<string, unknown>;
+}
 
 export interface Provider {
-  id: string;
+  resource_uid: string;
+  revision: number;
+  lifecycle: 'active' | 'deprecated';
   slug: string;
   display_name: string;
-  icon_url: string | null;
-  homepage_url: string | null;
-  base_url: string | null;
-  auth_method: string;
-  auth_config: Record<string, unknown> | null;
-  default_invocation_method: string;
-  sdk_package: string | null;
+  icon_url?: string;
+  homepage_url?: string;
+  base_url?: string;
+  auth_method: ProviderAuthMethod;
+  auth_config?: Record<string, unknown>;
+  invocation_methods: string[];
+  adapter_keys: string[];
+  sdk_package?: string;
   enabled: boolean;
   sort_order: number;
-  description: string | null;
-  documentation_url: string | null;
+  description?: string;
+  documentation_url?: string;
   supported_regions: string[];
-  source: string;
-  created_at: string;
-  updated_at: string;
+  origin: CatalogOrigin;
 }
 
 export interface Channel {
-  id: string;
-  provider_id: string;
+  resource_uid: string;
+  provider_resource_uid: string;
+  revision: number;
+  lifecycle: 'active' | 'deprecated';
   slug: string;
   display_name: string;
   invocation_method: string;
-  base_url: string | null;
-  request_config: Record<string, unknown> | null;
-  load_balance_strategy: string;
-  weight: number;
-  rate_limit_rpm: number | null;
-  rate_limit_tpm: number | null;
-  daily_quota: number | null;
-  concurrent_limit: number;
+  adapter_keys: string[];
+  base_url?: string;
+  request_config: Record<string, unknown>;
   enabled: boolean;
   priority: number;
-  health_status: string;
-  source: string;
-  created_at: string;
-  updated_at: string;
+  origin: CatalogOrigin;
 }
 
 export interface CredentialView {
   id: string;
-  channel_id: string;
+  channel_resource_uid: string;
   label: string | null;
-  credential_type: string;
+  credential_type: 'api_key' | 'cli_session';
   payload_fields: string[];
   enabled: boolean;
   is_valid: boolean;
   last_validated_at: string | null;
   validation_error: string | null;
   expires_at: string | null;
-  auto_refresh: boolean;
   last_used_at: string | null;
-  total_usage_count: number;
-  source: string;
+  total_usage_count: string;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface ModelDefinition {
-  id: string;
-  provider_id: string;
+  resource_uid: string;
+  provider_resource_uid: string;
+  revision: number;
+  lifecycle: 'active' | 'deprecated';
   model_id: string;
   provider_model_id: string;
   display_name: string;
   description: string | null;
   icon_url: string | null;
   tags: string[];
-  task_types: string[];
-  capabilities: string[];
-  invocation_mode: string;
+  task_types: TaskType[];
+  capabilities: Capability[];
+  invocation_mode: ModelInvocationMode;
   supports_streaming: boolean;
-  allowed_channel_ids: string[];
-  param_schema: Record<string, unknown> | null;
-  param_constraints: unknown[] | null;
-  limits: Record<string, unknown> | null;
+  adapter_key: string;
+  allowed_channel_resource_uids: string[];
+  param_schema: Record<string, unknown>;
+  param_constraints: unknown[];
+  input_contract?: Record<string, unknown>;
+  poll_policy?: Record<string, unknown>;
+  limits: Record<string, unknown>;
   pricing: Record<string, unknown> | null;
+  rate_card_revision: number | null;
+  rate_card_revision_id: string | null;
   enabled: boolean;
+  visibility: CatalogVisibility;
   deprecated: boolean;
+  deprecated_message?: string;
   sort_order: number;
-  source: string;
-  created_at: string;
-  updated_at: string;
+  provider: {
+    resource_uid: string;
+    slug: string;
+    display_name: string;
+    icon_url?: string;
+  };
+  origin: CatalogOrigin;
+}
+
+export interface CredentialCatalogProvider {
+  resource_uid: string;
+  slug: string;
+  display_name: string;
+  auth_method: ProviderAuthMethod;
+  adapter_keys: string[];
+}
+
+export interface CredentialCatalogChannel {
+  resource_uid: string;
+  provider_resource_uid: string;
+  slug: string;
+  display_name: string;
+  adapter_keys: string[];
+  enabled: boolean;
+}
+
+export interface CredentialCatalogModel {
+  resource_uid: string;
+  provider_resource_uid: string;
+  model_id: string;
+  provider_model_id: string;
+  display_name: string;
+  task_types: TaskType[];
+  adapter_key: string;
+  allowed_channel_resource_uids: string[];
+  enabled: boolean;
+  origin: CatalogOrigin;
+}
+
+export interface CredentialCatalogView {
+  catalog_epoch: string;
+  providers: CredentialCatalogProvider[];
+  channels: CredentialCatalogChannel[];
+  models: CredentialCatalogModel[];
+  credentials: CredentialView[];
 }
 
 export interface DreaminaStatusView {
@@ -109,13 +171,6 @@ export interface DreaminaLoginPoll {
   state: 'pending' | 'success' | 'no_permission' | 'expired' | 'failed';
   user_id?: string;
   message?: string;
-}
-
-export interface SyncResult {
-  providers: { created: number; updated: number; skipped: number };
-  channels: { created: number; updated: number; skipped: number };
-  models: { created: number; updated: number; skipped: number };
-  errors: string[];
 }
 
 export interface ObjectStorageSettings {
@@ -145,15 +200,9 @@ export interface SmtpSettings {
   has_pass: boolean;
 }
 
-export interface ConfigSyncStatus {
-  syncing: boolean;
-  last_sync_at: string | null;
-  last_result: SyncResult | null;
-}
-
 export interface VendorModel {
   id: string;
-  /** Already present in our model_definitions for this provider. */
+  /** Already represented by a current Catalog Model Resource for this provider. */
   imported: boolean;
 }
 export interface VendorModelList {
@@ -174,6 +223,8 @@ export interface ProviderStatusView {
 
 export interface RequestLogRow {
   id: string;
+  logical_request_id: string | null;
+  attempt_no: number | null;
   created_at: string;
   finished_at: string | null;
   source: string;
@@ -182,7 +233,11 @@ export interface RequestLogRow {
   model_id: string | null;
   provider_slug: string | null;
   adapter_key: string | null;
-  channel_id: string | null;
+  model_resource_uid: string | null;
+  model_revision_id: string | null;
+  rate_card_revision_id: string | null;
+  catalog_epoch: string | null;
+  channel_resource_uid: string | null;
   credential_label: string | null;
   status: string;
   http_status: number | null;
@@ -205,7 +260,6 @@ export interface StatsOverview {
   cancelled: number;
   running: number;
   queued: number;
-  estimated_cost: number;
 }
 
 export interface ModelStats {
@@ -223,7 +277,6 @@ export interface MemberStats {
   total: number;
   succeeded: number;
   failed: number;
-  estimated_cost: number;
 }
 
 export interface ProjectStats {
@@ -232,7 +285,6 @@ export interface ProjectStats {
   total: number;
   succeeded: number;
   failed: number;
-  estimated_cost: number;
 }
 
 /* ── billing (real per-request cost over the request-log ledger) ── */
@@ -251,14 +303,24 @@ export interface BillingOverview {
 export interface FeatureConfig {
   id: string;
   feature_key: string;
+  required_task_type: TaskType;
   display_name: string;
   description: string | null;
-  model_ids: string[];
-  primary_model_id: string | null;
-  fallback_model_id: string | null;
+  model_resource_uids: string[];
   enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface FeatureConfigModelOption {
+  resource_uid: string;
+  model_id: string;
+  display_name: string;
+  task_types: TaskType[];
+  enabled: boolean;
+  provider: {
+    display_name: string;
+  };
 }
 
 export interface BillingRow {

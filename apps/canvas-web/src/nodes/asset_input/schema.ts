@@ -37,13 +37,4 @@ export const assetInputSchema: NodeSchema<AssetInputData> = {
     const name = data.asset_name ? `（${data.asset_name}）` : '';
     return `这是一个${titleForMedia(data.media_type)}${name}，仅作展示与参考，不触发生成。`;
   },
-  buildTaskBody() {
-    // Asset nodes never submit generation tasks.
-    return {
-      task_type: 'gen.image',
-      model_id: '',
-      params: {},
-      inputs: {},
-    };
-  },
 };

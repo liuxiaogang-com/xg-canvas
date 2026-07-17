@@ -1,0 +1,10 @@
+version: "1.0"
+provider_slug: deepseek
+channels:
+  - resource_uid: 2f7c86d4-6108-45af-a160-6dcc61034869
+    revision: 1
+    slug: deepseek-official
+    display_name: DeepSeek 官方 API
+    invocation_method: http
+    adapter_keys:
+      - openai-compat

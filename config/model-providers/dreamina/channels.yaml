@@ -1,0 +1,10 @@
+version: "1.0"
+provider_slug: dreamina
+channels:
+  - resource_uid: 88fb34e4-2c76-4e8e-9f87-59dd9fc5c363
+    revision: 1
+    slug: dreamina-cli
+    display_name: 即梦 CLI
+    invocation_method: cli
+    adapter_keys:
+      - dreamina-cli

@@ -1,16 +1,8 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
 import { RequirePerm } from '../../authz/require-perm.decorator';
+import { CurrentUser, type AuthUser } from '../../common/decorators/current-user';
 import { ChannelService } from './channel.service';
 import { CreateChannelDto } from './create-channel.dto';
 import { UpdateChannelDto } from './update-channel.dto';
@@ -22,10 +14,7 @@ export class ChannelController {
   constructor(private readonly channelService: ChannelService) {}
 
   @Post('providers/:providerId/channels')
-  create(
-    @Param('providerId', ParseUUIDPipe) providerId: string,
-    @Body() dto: CreateChannelDto,
-  ) {
+  create(@Param('providerId', ParseUUIDPipe) providerId: string, @Body() dto: CreateChannelDto) {
     return this.channelService.create(providerId, dto);
   }
 
@@ -40,8 +29,12 @@ export class ChannelController {
   }
 
   @Patch('channels/:id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateChannelDto) {
-    return this.channelService.update(id, dto);
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateChannelDto,
+  ) {
+    return this.channelService.update(id, dto, user.user_id);
   }
 
   @Delete('channels/:id')

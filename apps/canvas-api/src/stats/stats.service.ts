@@ -11,7 +11,6 @@ export interface OverviewResult {
   cancelled: number;
   running: number;
   queued: number;
-  estimated_cost: number;
 }
 
 export interface ProjectStats {
@@ -20,7 +19,6 @@ export interface ProjectStats {
   total: number;
   succeeded: number;
   failed: number;
-  estimated_cost: number;
 }
 
 export interface ModelStats {
@@ -38,10 +36,7 @@ export interface MemberStats {
   total: number;
   succeeded: number;
   failed: number;
-  estimated_cost: number;
 }
-
-const MOCK_COST_PER_TASK = 0.5;
 
 @Injectable()
 export class StatsService {
@@ -49,13 +44,13 @@ export class StatsService {
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
   ) {}
 
-  async overview(workspaceId?: string): Promise<OverviewResult> {
-    const where = workspaceId ? 'WHERE workspace_id = $1' : '';
-    const params = workspaceId ? [workspaceId] : [];
-
+  async overview(workspaceId: string): Promise<OverviewResult> {
     const rows: Array<{ status: string; count: string }> = await this.tasks.query(
-      `SELECT status, COUNT(*)::int AS count FROM canvas.tasks ${where} GROUP BY status`,
-      params,
+      `SELECT status, COUNT(*)::int AS count
+         FROM canvas.tasks
+        WHERE workspace_id = $1
+        GROUP BY status`,
+      [workspaceId],
     );
 
     const counts: Record<string, number> = {};
@@ -74,14 +69,10 @@ export class StatsService {
       cancelled: counts['cancelled'] ?? 0,
       running: counts['running'] ?? 0,
       queued: counts['queued'] ?? 0,
-      estimated_cost: succeeded * MOCK_COST_PER_TASK,
     };
   }
 
-  async byProject(workspaceId?: string): Promise<ProjectStats[]> {
-    const where = workspaceId ? 'WHERE t.workspace_id = $1' : '';
-    const params = workspaceId ? [workspaceId] : [];
-
+  async byProject(workspaceId: string): Promise<ProjectStats[]> {
     const rows: Array<Record<string, unknown>> = await this.tasks.query(
       `SELECT t.project_id,
               p.name AS project_name,
@@ -90,10 +81,10 @@ export class StatsService {
               COUNT(*) FILTER (WHERE t.status = 'failed')::int AS failed
          FROM canvas.tasks t
          LEFT JOIN canvas.projects p ON p.id = t.project_id
-         ${where}
+        WHERE t.workspace_id = $1
          GROUP BY t.project_id, p.name
          ORDER BY total DESC`,
-      params,
+      [workspaceId],
     );
 
     return rows.map((r) => ({
@@ -102,24 +93,20 @@ export class StatsService {
       total: Number(r.total),
       succeeded: Number(r.succeeded),
       failed: Number(r.failed),
-      estimated_cost: Number(r.succeeded) * MOCK_COST_PER_TASK,
     }));
   }
 
-  async byModel(workspaceId?: string): Promise<ModelStats[]> {
-    const where = workspaceId ? 'WHERE workspace_id = $1' : '';
-    const params = workspaceId ? [workspaceId] : [];
-
+  async byModel(workspaceId: string): Promise<ModelStats[]> {
     const rows: Array<Record<string, unknown>> = await this.tasks.query(
       `SELECT model_id,
               COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'succeeded')::int AS succeeded,
               MAX(created_at) AS last_used_at
          FROM canvas.tasks
-         ${where}
+        WHERE workspace_id = $1
          GROUP BY model_id
          ORDER BY total DESC`,
-      params,
+      [workspaceId],
     );
 
     return rows.map((r) => {
@@ -135,10 +122,7 @@ export class StatsService {
     });
   }
 
-  async byMember(workspaceId?: string): Promise<MemberStats[]> {
-    const where = workspaceId ? 'WHERE t.workspace_id = $1' : '';
-    const params = workspaceId ? [workspaceId] : [];
-
+  async byMember(workspaceId: string): Promise<MemberStats[]> {
     const rows: Array<Record<string, unknown>> = await this.tasks.query(
       `SELECT t.owner_id,
               u.display_name,
@@ -147,10 +131,10 @@ export class StatsService {
               COUNT(*) FILTER (WHERE t.status = 'failed')::int AS failed
          FROM canvas.tasks t
          LEFT JOIN canvas.users u ON u.id = t.owner_id
-         ${where}
+        WHERE t.workspace_id = $1
          GROUP BY t.owner_id, u.display_name
          ORDER BY total DESC`,
-      params,
+      [workspaceId],
     );
 
     return rows.map((r) => ({
@@ -160,7 +144,6 @@ export class StatsService {
       total: Number(r.total),
       succeeded: Number(r.succeeded),
       failed: Number(r.failed),
-      estimated_cost: Number(r.succeeded) * MOCK_COST_PER_TASK,
     }));
   }
 }

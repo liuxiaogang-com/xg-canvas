@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsBoolean, IsObject, MaxLength, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsObject,
+  MaxLength,
+  IsDateString,
+  IsIn,
+} from 'class-validator';
 
 export class CreateCredentialDto {
   @IsOptional()
@@ -6,13 +14,12 @@ export class CreateCredentialDto {
   @MaxLength(200)
   label?: string;
 
-  @IsString()
-  @MaxLength(30)
-  credential_type: string;
+  @IsIn(['api_key', 'cli_session'])
+  credential_type: 'api_key' | 'cli_session';
 
   /** Plaintext credential payload — will be encrypted before storage */
   @IsObject()
-  credentials: Record<string, any>;
+  credentials: Record<string, string>;
 
   @IsOptional()
   @IsBoolean()
@@ -21,13 +28,4 @@ export class CreateCredentialDto {
   @IsOptional()
   @IsDateString()
   expires_at?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  auto_refresh?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  created_by?: string;
 }

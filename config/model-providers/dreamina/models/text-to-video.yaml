@@ -1,0 +1,53 @@
+version: "1.0"
+provider_slug: dreamina
+models:
+  - resource_uid: 4d54df62-ad5e-4c64-a411-b13d89e336f1
+    revision: 1
+    model_id: dreamina:text2video
+    provider_model_id: text2video
+    display_name: 即梦文生视频
+    description: 文本生成视频，Seedance 2.0 旗舰，4-15 秒
+    task_types:
+      - gen.video
+    capabilities: []
+    invocation_mode: async
+    adapter_key: dreamina-cli
+    allowed_channel_slugs:
+      - dreamina-cli
+    tags:
+      - 视频
+      - 文生视频
+    input_contract:
+      default_mode: text_to_video
+      modes:
+        - id: text_to_video
+          label: 文生视频
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [duration, ratio, model_version], ui_zone: params }
+      properties:
+        prompt: { type: text, label: 提示词 }
+        duration: { type: number, label: 时长（秒）, min: 4, max: 15 }
+        ratio:
+          type: enum
+          label: 比例
+          enum_options:
+            - { value: "1:1", label: "1:1" }
+            - { value: "3:4", label: "3:4" }
+            - { value: "16:9", label: "16:9" }
+            - { value: "4:3", label: "4:3" }
+            - { value: "9:16", label: "9:16" }
+            - { value: "21:9", label: "21:9" }
+        model_version:
+          type: enum
+          label: 模型版本
+          enum_options:
+            - { value: seedance2.0, label: Seedance 2.0 }
+            - { value: seedance2.0fast, label: Seedance 2.0 Fast }
+            - { value: seedance2.0_vip, label: Seedance 2.0 VIP }
+            - { value: seedance2.0fast_vip, label: Seedance 2.0 Fast VIP }
+            - { value: seedance2.0mini, label: Seedance 2.0 Mini }
+      required: [prompt]
+      defaults: { duration: 5, ratio: "16:9", model_version: seedance2.0fast }

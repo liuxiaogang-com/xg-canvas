@@ -8,3 +8,6 @@ export * from './favorite';
 export * from './node';
 export * from './connection-rules';
 export * from './error-codes';
+export * from './model-catalog';
+export * from './adapter-contracts';
+export * from './model-identifiers';

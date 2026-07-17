@@ -1,5 +1,10 @@
 import type { NodeStatus } from '@xgcanvas/ui-kit';
-import type { GenerationReference, GenerationReferenceSlot, GenerationReferenceType } from '@xgcanvas/shared-types';
+import type {
+  GenerationReference,
+  GenerationReferenceSlot,
+  GenerationReferenceType,
+  TaskType,
+} from '@xgcanvas/shared-types';
 
 export interface NodePortDef {
   id: string;
@@ -41,7 +46,7 @@ export interface FormReferenceSlot {
 
 export interface NodeFormSpec {
   /** task_type for modelApi.list + cost estimate. */
-  taskType: string;
+  taskType: TaskType | ((data: CanvasNodeData) => TaskType);
   modes?: FormModeDef[];
   /** node.data field holding the selected mode id. Default 'mode'. */
   modeField?: string;
@@ -49,7 +54,7 @@ export interface NodeFormSpec {
   prompt?: { field: string; placeholder?: string; mention?: boolean };
   /** node.data field holding the chosen model id. Default 'model_id'. */
   modelField?: string;
-  /** show a live credit-cost badge next to the generate button. */
+  /** show a live monetary estimate next to the generate button. */
   cost?: boolean;
   submit: { label: string };
 }
@@ -71,7 +76,7 @@ export interface NodeSchema<DefaultData = Record<string, unknown>> {
   /** Build a system-prompt context string for Agent. */
   agentContext(data: DefaultData): string;
   /** Map node + upstream into task params/inputs at submission time. */
-  buildTaskBody(data: DefaultData, upstream: UpstreamInputs): TaskBody;
+  buildTaskBody?(data: DefaultData, upstream: UpstreamInputs): TaskBody;
 }
 
 export interface UpstreamInputs {
@@ -80,7 +85,7 @@ export interface UpstreamInputs {
 }
 
 export interface TaskBody {
-  task_type: string;
+  task_type: TaskType;
   model_id: string;
   params: Record<string, unknown>;
   inputs: Record<string, unknown>;

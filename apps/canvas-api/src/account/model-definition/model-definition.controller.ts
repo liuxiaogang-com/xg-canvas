@@ -15,6 +15,7 @@ import { RequirePerm } from '../../authz/require-perm.decorator';
 import { ModelDefinitionService } from './model-definition.service';
 import { CreateModelDefinitionDto } from './create-model-definition.dto';
 import { UpdateModelDefinitionDto } from './update-model-definition.dto';
+import { ForkModelDefinitionDto } from './fork-model-definition.dto';
 
 @ApiTags('Model Definitions')
 @RequirePerm('system.model.manage', { scope: 'system' })
@@ -35,6 +36,11 @@ export class ModelDefinitionController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.modelDefinitionService.findOne(id);
+  }
+
+  @Post(':id/fork')
+  fork(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ForkModelDefinitionDto) {
+    return this.modelDefinitionService.fork(id, dto);
   }
 
   @Patch(':id')

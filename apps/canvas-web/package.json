@@ -5,7 +5,9 @@
   "description": "XG Canvas creator front-end (canvas-web). Vite + React 18 + TypeScript.",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -b --pretty false",
     "build": "tsc -b && vite build",
+    "test": "node --experimental-strip-types --test tests/catalog-contract.test.mjs",
     "preview": "vite preview",
     "lint": "eslint src/"
   },

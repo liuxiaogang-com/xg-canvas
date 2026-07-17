@@ -1,4 +1,17 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsObject, MaxLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import {
+  HasNoSecretLikeConfigKeys,
+  IsSafeOutboundBaseUrl,
+} from '../catalog/outbound-config.validator';
 
 export class CreateChannelDto {
   @IsString()
@@ -13,38 +26,20 @@ export class CreateChannelDto {
   @MaxLength(20)
   invocation_method: string;
 
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  adapter_keys: string[];
+
   @IsOptional()
   @IsString()
+  @IsSafeOutboundBaseUrl()
   base_url?: string;
 
   @IsOptional()
   @IsObject()
-  request_config?: Record<string, any>;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  load_balance_strategy?: string;
-
-  @IsOptional()
-  @IsInt()
-  weight?: number;
-
-  @IsOptional()
-  @IsInt()
-  rate_limit_rpm?: number;
-
-  @IsOptional()
-  @IsInt()
-  rate_limit_tpm?: number;
-
-  @IsOptional()
-  @IsInt()
-  daily_quota?: number;
-
-  @IsOptional()
-  @IsInt()
-  concurrent_limit?: number;
+  @HasNoSecretLikeConfigKeys('request_config')
+  request_config?: Record<string, unknown>;
 
   @IsOptional()
   @IsBoolean()

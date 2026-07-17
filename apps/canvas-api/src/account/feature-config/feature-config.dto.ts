@@ -1,4 +1,13 @@
-import { IsArray, IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+} from 'class-validator';
 
 export class UpsertFeatureConfigDto {
   @IsString()
@@ -11,19 +20,13 @@ export class UpsertFeatureConfigDto {
 
   @IsOptional()
   @IsString()
-  description?: string;
+  description?: string | null;
 
   @IsArray()
-  @IsString({ each: true })
-  model_ids: string[];
-
-  @IsOptional()
-  @IsString()
-  primary_model_id?: string | null;
-
-  @IsOptional()
-  @IsString()
-  fallback_model_id?: string | null;
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  model_resource_uids: string[];
 
   @IsOptional()
   @IsBoolean()

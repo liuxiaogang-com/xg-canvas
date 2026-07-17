@@ -1,0 +1,13 @@
+format: xgcanvas.catalog.authoring
+schema_version: "1"
+
+source:
+  source_id: "69c582b1-ed5d-4ee9-b4dd-412f913f20db"
+  namespace: xgcanvas.official
+  kind: official
+
+release:
+  release_id: "6287f126-d9dc-4a78-b5a6-f4de37d98e32"
+  sequence: 1
+  published_at: "2026-07-16T07:58:00Z"
+  min_runtime_version: "0.1.0"

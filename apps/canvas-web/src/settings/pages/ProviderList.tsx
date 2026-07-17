@@ -14,26 +14,24 @@ import {
   ErrorNote,
   type Column,
 } from '../components/kit';
-import { Modal, Select, toast } from '../../ui';
+import { Modal, toast } from '../../ui';
 import { providerApi } from '../api';
 import type { Provider } from '../types';
-
-type AuthMethod = 'api_key' | 'oauth' | 'none';
-
-const AUTH_OPTIONS: { value: AuthMethod; label: string }[] = [
-  { value: 'api_key', label: 'API Key' },
-  { value: 'oauth', label: 'OAuth' },
-  { value: 'none', label: '无' },
-];
+import { CatalogOriginBadge } from '../components/CatalogOriginBadge';
 
 interface CreateForm {
   slug: string;
   display_name: string;
   base_url: string;
-  auth_method: AuthMethod;
+  enabled: boolean;
 }
 
-const EMPTY_FORM: CreateForm = { slug: '', display_name: '', base_url: '', auth_method: 'api_key' };
+const EMPTY_FORM: CreateForm = {
+  slug: '',
+  display_name: '',
+  base_url: '',
+  enabled: true,
+};
 
 function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : '操作失败';
@@ -72,21 +70,24 @@ export default function ProviderList() {
   };
 
   const submit = async () => {
-    if (!form.slug.trim() || !form.display_name.trim()) {
-      toast.warning('请填写 slug 与名称');
+    if (!form.slug.trim() || !form.display_name.trim() || !form.base_url.trim()) {
+      toast.warning('请填写 slug、名称与 Base URL');
       return;
     }
     setSubmitting(true);
     try {
-      await providerApi.create({
+      const created = await providerApi.create({
         slug: form.slug.trim(),
         display_name: form.display_name.trim(),
-        base_url: form.base_url.trim() || null,
-        auth_method: form.auth_method,
+        base_url: form.base_url.trim(),
+        auth_method: 'api_key',
+        adapter_keys: ['openai-compat'],
+        invocation_methods: ['http'],
+        enabled: form.enabled,
       });
-      toast.success('创建成功');
+      toast.success('供应商已创建，请继续创建一个明确的调用渠道');
       setModalOpen(false);
-      await load();
+      navigate(`/settings/providers/${created.resource_uid}`);
     } catch (e: unknown) {
       toast.error(errMessage(e));
     } finally {
@@ -111,9 +112,9 @@ export default function ProviderList() {
       render: (r) => <Badge tone="info">{r.auth_method}</Badge>,
     },
     {
-      key: 'source',
-      header: '模型来源',
-      render: (r) => r.source,
+      key: 'origin',
+      header: '来源',
+      render: (r) => <CatalogOriginBadge origin={r.origin} />,
     },
     {
       key: 'enabled',
@@ -155,8 +156,8 @@ export default function ProviderList() {
         <DataTable
           columns={columns}
           rows={rows}
-          rowKey={(r) => r.id}
-          onRowClick={(r) => navigate(`/settings/providers/${r.id}`)}
+          rowKey={(r) => r.resource_uid}
+          onRowClick={(r) => navigate(`/settings/providers/${r.resource_uid}`)}
           empty="暂无供应商"
         />
       )}
@@ -188,12 +189,20 @@ export default function ProviderList() {
             onChange={(e) => setForm({ ...form, base_url: e.target.value })}
           />
         </Field>
-        <Field label="鉴权方式">
-          <Select<AuthMethod>
-            value={form.auth_method}
-            options={AUTH_OPTIONS}
-            onChange={(v) => setForm({ ...form, auth_method: v })}
-          />
+        <Field label="当前接入契约">
+          <div className="set-stat__sub">
+            OpenAI-compatible HTTP + API Key。OAuth、免鉴权和自定义凭证表单尚未开放。
+          </div>
+        </Field>
+        <Field label="创建后启用">
+          <label className="set-filter-check">
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
+            />
+            {form.enabled ? '启用' : '停用'}
+          </label>
         </Field>
       </Modal>
     </SettingsPage>

@@ -3,6 +3,10 @@ import { ReadStream } from 'node:fs';
 import type { ObjectStorageClient } from './object-storage.client';
 import { AssetDownloaderService } from './asset-downloader.service';
 
+jest.mock('../../common/http/guarded-outbound', () => ({
+  guardedFetch: (input: string | URL, init?: RequestInit) => globalThis.fetch(input, init),
+}));
+
 describe('AssetDownloaderService', () => {
   const storage = {
     bucket: jest.fn(),
@@ -25,7 +29,9 @@ describe('AssetDownloaderService', () => {
     );
     const downloader = new AssetDownloaderService(storage).forTask(context());
 
-    await expect(downloader.download({ url: 'https://vendor.test/output.png' })).resolves.toMatchObject({
+    await expect(
+      downloader.download({ url: 'https://vendor.test/output.png' }),
+    ).resolves.toMatchObject({
       size_bytes: 3,
       mime_type: 'image/png',
     });
@@ -35,9 +41,9 @@ describe('AssetDownloaderService', () => {
   });
 
   it('stops a chunked response at the configured byte cap', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
-    );
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
     const downloader = new AssetDownloaderService(storage).forTask(context());
 
     await expect(

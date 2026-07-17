@@ -72,8 +72,42 @@ describe('ModelInputContractSchema', () => {
     expect(ModelInputContractSchema.safeParse(input).success).toBe(false);
   });
 
-  it('normalizes legacy blank DB values to no contract', () => {
-    expect(parseOptionalModelInputContract({})).toEqual({ success: true, data: undefined });
-    expect(parseOptionalModelInputContract(null)).toEqual({ success: true, data: undefined });
+  it('accepts only omission as no contract', () => {
+    expect(parseOptionalModelInputContract(undefined)).toEqual({ success: true, data: undefined });
+    expect(parseOptionalModelInputContract({}).success).toBe(false);
+    expect(parseOptionalModelInputContract(null).success).toBe(false);
+  });
+
+  it('rejects redundant required flags and invalid collection minima', () => {
+    expect(
+      ModelInputContractSchema.safeParse({
+        modes: [
+          {
+            id: 'image_to_video',
+            required_slots: [{ slot: 'source_image', type: 'image', required: false }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      ModelInputContractSchema.safeParse({
+        modes: [
+          {
+            id: 'image_to_video',
+            required_slots: [{ slot: 'source_image', type: 'image', min: 0 }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      ModelInputContractSchema.safeParse({
+        modes: [
+          {
+            id: 'image_to_video',
+            optional_slots: [{ slot: 'source_image', type: 'image', min: 1 }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

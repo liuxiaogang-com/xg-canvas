@@ -4,6 +4,7 @@ import { RequirePerm } from '../authz/require-perm.decorator';
 import { CurrentUser, type AuthUser } from '../common/decorators/current-user';
 import { CreateTaskDto } from './dto/task.dto';
 import type { TaskStatus } from './state-machine';
+import { presentTask } from './task.presenter';
 import { TaskService } from './task.service';
 
 // project_id is optional here — null-project (gen.text) tasks fall back to
@@ -15,14 +16,19 @@ export class TaskController {
   constructor(private readonly tasks: TaskService) {}
 
   @Post()
-  @RequirePerm('project.task.run', { scope: 'project', from: 'body', key: 'project_id', optional: true })
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateTaskDto) {
-    return this.tasks.create(user.user_id, user.workspace_id, dto);
+  @RequirePerm('project.task.run', {
+    scope: 'project',
+    from: 'body',
+    key: 'project_id',
+    optional: true,
+  })
+  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateTaskDto) {
+    return presentTask(await this.tasks.create(user.user_id, user.workspace_id, dto));
   }
 
   @Get()
   @RequirePerm('project.task.view', VIEW)
-  list(
+  async list(
     @CurrentUser() user: AuthUser,
     @Query('project_id') projectId?: string,
     @Query('status') status?: TaskStatus,
@@ -34,12 +40,18 @@ export class TaskController {
     const standaloneOnly = parseBooleanQuery(standalone);
     const activeOnly = parseBooleanQuery(active);
     if (projectId && standaloneOnly) {
-      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: 'project_id cannot be combined with standalone=true' });
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'project_id cannot be combined with standalone=true',
+      });
     }
     if (status && activeOnly) {
-      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: 'status cannot be combined with active=true' });
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'status cannot be combined with active=true',
+      });
     }
-    return this.tasks.list(user.user_id, {
+    const tasks = await this.tasks.list(user.user_id, {
       workspace_id: user.workspace_id,
       project_id: projectId,
       status,
@@ -48,21 +60,22 @@ export class TaskController {
       standalone: standaloneOnly,
       active: activeOnly,
     });
+    return tasks.map(presentTask);
   }
 
   @Get(':id')
-  detail(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.tasks.getOrThrow(user.user_id, id, user.workspace_id);
+  async detail(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return presentTask(await this.tasks.getOrThrow(user.user_id, id, user.workspace_id));
   }
 
   @Post(':id/cancel')
-  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.tasks.cancel(user.user_id, id);
+  async cancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return presentTask(await this.tasks.cancel(user.user_id, id));
   }
 
   @Post(':id/retry')
-  retry(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.tasks.retry(user.user_id, user.workspace_id, id);
+  async retry(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return presentTask(await this.tasks.retry(user.user_id, user.workspace_id, id));
   }
 }
 

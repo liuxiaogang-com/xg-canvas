@@ -30,14 +30,4 @@ export const scriptInputSchema: NodeSchema<ScriptInputData> = {
   agentContext(data) {
     return `这是一个脚本节点，原文 ${data.raw_text.length} 字。`;
   },
-  buildTaskBody() {
-    // Script actions don't go through the generic task pipeline; they
-    // post directly to /script/* endpoints. This stub is unused.
-    return {
-      task_type: 'script.optimize',
-      model_id: 'openai:gpt-4o-mini',
-      params: {},
-      inputs: {},
-    };
-  },
 };

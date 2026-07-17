@@ -1,0 +1,115 @@
+version: "1.0"
+provider_slug: bailian
+models:
+  - resource_uid: 20981f34-c245-4954-b929-28133c8da324
+    revision: 1
+    model_id: bailian:wan2.7-i2v
+    provider_model_id: wan2.7-i2v-2026-04-25
+    display_name: 万相 2.7 图生视频
+    description: 万相 2.7 图生视频，支持首帧、首尾帧、驱动音频和视频续写。
+    task_types:
+      - gen.video
+    capabilities:
+      - video_gen
+      - image_ref
+    invocation_mode: async
+    adapter_key: bailian-dashscope
+    allowed_channel_slugs:
+      - bailian-dashscope-native
+    tags:
+      - 视频
+      - 图生视频
+    input_contract:
+      default_mode: image_to_video
+      modes:
+        - id: image_to_video
+          label: 图生视频
+          required_slots:
+            - slot: source_image
+              type: image
+              min: 1
+              max: 1
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+        - id: first_last_frame
+          label: 首尾帧
+          required_slots:
+            - slot: first_frame
+              type: image
+              min: 1
+              max: 1
+            - slot: last_frame
+              type: image
+              min: 1
+              max: 1
+        - id: audio_driven_video
+          label: 音频参考
+          required_slots:
+            - slot: source_image
+              type: image
+              min: 1
+              max: 1
+              library:
+                kinds:
+                  - character
+                  - style
+                forms:
+                  - material
+            - slot: driving_audio
+              type: audio
+              min: 1
+              max: 1
+              library:
+                kinds:
+                  - voice
+                forms:
+                  - material
+        - id: video_continue
+          label: 视频续写
+          required_slots:
+            - slot: first_clip
+              type: video
+              min: 1
+              max: 1
+    param_schema:
+      version: "1.0"
+      groups:
+        - { id: input, label: 输入, fields: [prompt, negative_prompt], ui_zone: main_input }
+        - { id: generation, label: 生成设置, fields: [resolution, duration], ui_zone: params }
+        - { id: advanced, label: 高级, fields: [prompt_extend, watermark, seed], ui_zone: advanced }
+      properties:
+        prompt: { type: text, label: 提示词, max_length: 5000 }
+        negative_prompt: { type: text, label: 反向提示词, max_length: 500 }
+        resolution:
+          type: enum
+          label: 分辨率
+          enum_options:
+            - { value: 720P, label: 720P }
+            - { value: 1080P, label: 1080P }
+        duration: { type: integer, label: 时长（秒）, min: 2, max: 15, step: 1 }
+        prompt_extend: { type: boolean, label: 智能改写提示词 }
+        watermark: { type: boolean, label: 添加水印 }
+        seed: { type: integer, label: 随机种子, min: 0, max: 2147483647 }
+      required: []
+      defaults: { resolution: 1080P, duration: 5, prompt_extend: true, watermark: false }
+    poll_policy:
+      initial_delay_ms: 5000
+      interval_ms: 10000
+      max_total_ms: 600000
+    limits:
+      min_duration_sec: 2
+      max_duration_sec: 15
+      max_prompt_chars: 5000
+      max_reference_images: 2
+    pricing:
+      resource_uid: 957c7a4a-8b6b-446b-bbcd-4d48b296db3c
+      revision: 1
+      currency: CNY
+      components:
+        - meter: duration_seconds
+          per: 1
+          price: 0.45

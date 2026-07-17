@@ -12,8 +12,8 @@ export function aspectFromSize(width?: number | null, height?: number | null): s
 }
 
 /**
- * Prefer the live model param field `ratio` (Dreamina etc.) over the legacy
- * node-schema field `aspect_ratio`.
+ * Prefer the live Model Revision param field `ratio` over the node display
+ * field `aspect_ratio`.
  */
 export function resolveAspectRatio(data: Record<string, unknown> | null | undefined): string | null {
   if (!data) return null;
