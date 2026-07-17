@@ -5,7 +5,7 @@
 #
 # Prerequisites:
 #   - docker compose up -d
-#   - at least one gen.text model is available in the current live/demo execution mode
+#   - at least one gen.text model is enabled with an enabled credential
 #   - canvas schema migrated + prompt-presets seed loaded
 #
 # Usage:

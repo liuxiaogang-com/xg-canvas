@@ -58,7 +58,7 @@ export default function FeedDetailModal({ task, initialIndex, onClose, onRetry, 
     if (idx >= assets.length) setIdx(0);
   }, [assets.length, idx]);
 
-  const soon = () => toast.info('该操作在 demo 中暂未开放');
+  const soon = () => toast.info('该操作暂未开放');
 
   return (
     <div className="qg-detail-overlay" onClick={onClose}>

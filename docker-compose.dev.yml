@@ -41,7 +41,6 @@ services:
       DATABASE_URL: postgresql://xgcanvas:xgcanvas@postgres:5432/xgcanvas
       REDIS_URL: redis://redis:6379
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-http://localhost:5180}"
-      DEMO_MODE: "${DEMO_MODE:-false}"
       DREAMINA_CLI_PATH: /usr/local/bin/dreamina
     command: >-
       sh -c "pnpm build:workspace-libs

@@ -76,7 +76,7 @@ describe('AssetUploadService', () => {
       type: 'image',
       mime_type: 'IMAGE/PNG; charset=binary',
       bytes: 123,
-      name: 'demo.png',
+      name: 'fixture.png',
       with_thumbnail: true,
     });
 
@@ -243,7 +243,7 @@ function pendingDraft() {
     type: 'image' as const,
     mime_type: 'image/png',
     bytes: 10,
-    name: 'demo.png',
+    name: 'fixture.png',
     storage_key: `xgcanvas/staging/uploads/${WORKSPACE}/${DRAFT}/source.png`,
     thumb_storage_key: `xgcanvas/staging/uploads/${WORKSPACE}/${DRAFT}/thumb.jpg`,
     status: 'pending' as const,

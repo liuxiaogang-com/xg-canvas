@@ -52,7 +52,6 @@ services:
       DATABASE_URL: postgresql://xgcanvas:xgcanvas-internal-only@postgres:5432/xgcanvas
       REDIS_URL: redis://redis:6379
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
-      DEMO_MODE: "${DEMO_MODE:-false}"
       DREAMINA_CLI_PATH: /usr/local/bin/dreamina
     depends_on:
       migrate:
