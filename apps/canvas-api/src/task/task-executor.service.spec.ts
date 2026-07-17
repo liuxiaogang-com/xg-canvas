@@ -287,7 +287,6 @@ function claimed(): ClaimedTask {
     model_id: 'test:model',
     ...PIN,
     status: 'queued',
-    execution_mode: 'live',
     external_task_id: null,
     invoke_request_id: null,
     invoke_logical_request_id: null,

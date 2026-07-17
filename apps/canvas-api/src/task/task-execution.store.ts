@@ -27,14 +27,12 @@ export class TaskExecutionStore {
   async claimPending(
     limit: number,
     leaseMs = DEFAULT_LEASE_MS,
-    executionModes: Array<Task['execution_mode']> = ['live', 'demo'],
   ): Promise<ClaimedTask[]> {
     const result = await this.ds.query(
       `WITH picked AS (
          SELECT id
           FROM canvas.tasks
           WHERE external_task_id IS NULL
-            AND execution_mode = ANY($3::varchar[])
             AND (
               status = 'pending'
               OR (
@@ -65,7 +63,7 @@ export class TaskExecutionStore {
          FROM picked
         WHERE t.id = picked.id
         RETURNING t.*`,
-      [limit, leaseMs, executionModes],
+      [limit, leaseMs],
     );
     return rowsOf<ClaimedTask>(result);
   }
@@ -73,14 +71,12 @@ export class TaskExecutionStore {
   async claimDuePolls(
     limit: number,
     leaseMs = DEFAULT_LEASE_MS,
-    executionModes: Array<Task['execution_mode']> = ['live'],
   ): Promise<ClaimedTask[]> {
     const result = await this.ds.query(
       `WITH picked AS (
          SELECT id
           FROM canvas.tasks
           WHERE status = 'running'
-            AND execution_mode = ANY($3::varchar[])
             AND external_task_id IS NOT NULL
             AND (next_poll_at IS NULL OR next_poll_at <= NOW())
             AND (lease_token IS NULL OR lease_expires_at <= NOW())
@@ -95,7 +91,7 @@ export class TaskExecutionStore {
          FROM picked
         WHERE t.id = picked.id
         RETURNING t.*`,
-      [limit, leaseMs, executionModes],
+      [limit, leaseMs],
     );
     return rowsOf<ClaimedTask>(result);
   }

@@ -87,14 +87,13 @@ describe('TaskRetryService', () => {
     );
   });
 
-  it('keeps the immutable pin and execution mode when explicitly retrying', async () => {
-    const current = task({ execution_mode: 'demo' });
+  it('keeps the immutable pin when explicitly retrying', async () => {
+    const current = task();
     (repo.findOne as jest.Mock).mockResolvedValue(current);
     (ds.query as jest.Mock).mockResolvedValueOnce([{ ...current, status: 'queued' }]);
 
     await expect(service.retry(USER_ID, WORKSPACE_ID, 'task-1')).resolves.toMatchObject({
       status: 'queued',
-      execution_mode: 'demo',
       model_revision_id: MODEL_REVISION_ID,
     });
     expect(accountModels.assertTaskPin).toHaveBeenCalledWith({
@@ -106,7 +105,6 @@ describe('TaskRetryService', () => {
     const sql = (ds.query as jest.Mock).mock.calls[0][0] as string;
     expect(sql).toContain('channel_resource_uid = NULL');
     expect(sql).not.toContain('model_revision_id =');
-    expect(sql).not.toContain('execution_mode =');
   });
 });
 
@@ -122,7 +120,6 @@ function task(extra: Partial<Task> = {}): Task {
     model_revision_id: MODEL_REVISION_ID,
     rate_card_revision_id: null,
     catalog_epoch: '7',
-    execution_mode: 'live',
     ...extra,
   } as Task;
 }

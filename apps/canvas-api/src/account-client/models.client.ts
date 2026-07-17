@@ -49,9 +49,8 @@ export class AccountModelsClient {
   async resolveTaskPin(
     modelId: string,
     taskType: TaskType,
-    executionMode: 'live' | 'demo' = 'live',
   ): Promise<{ model_id: string; pin: ModelRevisionPin }> {
-    return this.availability.requireCurrent(modelId, taskType, executionMode);
+    return this.availability.requireCurrent(modelId, taskType);
   }
 
   async assertTaskPin(pin: ModelRevisionPin): Promise<void> {
@@ -61,9 +60,8 @@ export class AccountModelsClient {
   async requireFeatureModel(
     featureKey: string,
     taskType?: TaskType,
-    executionMode: 'live' | 'demo' = 'live',
   ): Promise<string> {
-    return this.featureConfig.requireModel(featureKey, { taskType, executionMode });
+    return this.featureConfig.requireModel(featureKey, { taskType });
   }
 
   async getRateCardPricing(revisionId: string): Promise<Record<string, unknown> | null> {
@@ -74,11 +72,8 @@ export class AccountModelsClient {
     return this.modelList.getAvailableModels(filter);
   }
 
-  getModelDetail(
-    modelId: string,
-    executionMode: 'live' | 'demo' = 'live',
-  ): Promise<AccountModelDetail | null> {
-    return this.modelList.getModelDetail(modelId, executionMode);
+  getModelDetail(modelId: string): Promise<AccountModelDetail | null> {
+    return this.modelList.getModelDetail(modelId);
   }
 
   estimateCost(

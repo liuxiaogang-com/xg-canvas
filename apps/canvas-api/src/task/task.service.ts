@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type EntityManager, Repository } from 'typeorm';
 import type { TaskType } from '@xgcanvas/shared-types';
 import type { ModelRevisionPin } from '@xgcanvas/shared-types';
-import { ConfigService } from '@nestjs/config';
 
 import { AuthzService } from '../authz/authz.service';
 import { Task } from '../database/entities';
@@ -51,12 +50,7 @@ export class TaskService {
     private readonly execution: TaskExecutionStore,
     private readonly accountModels: AccountModelsClient,
     private readonly retryTasks: TaskRetryService,
-    config: ConfigService,
-  ) {
-    this.demoMode = config.get<string>('DEMO_MODE', 'false') === 'true';
-  }
-
-  private readonly demoMode: boolean;
+  ) {}
 
   async create(userId: string, workspaceId: string, dto: CreateTaskDto): Promise<Task> {
     // Re-verify workspace membership on every create — the session's workspace_id
@@ -131,7 +125,6 @@ export class TaskService {
       model_revision_id: selection.pin.model_revision_id,
       rate_card_revision_id: selection.pin.rate_card_revision_id,
       catalog_epoch: selection.pin.catalog_epoch,
-      execution_mode: this.demoMode ? 'demo' : 'live',
       workspace_id: workspaceId,
       owner_id: userId,
       project_id: dto.project_id ?? null,
@@ -144,11 +137,7 @@ export class TaskService {
   private async resolveModelSelection(
     dto: CreateTaskDto,
   ): Promise<{ model_id: string; pin: ModelRevisionPin }> {
-    return this.accountModels.resolveTaskPin(
-      dto.model_id,
-      dto.task_type as TaskType,
-      this.demoMode ? 'demo' : 'live',
-    );
+    return this.accountModels.resolveTaskPin(dto.model_id, dto.task_type as TaskType);
   }
 
   async list(userId: string, q: TaskListQuery): Promise<Task[]> {
@@ -225,24 +214,16 @@ export class TaskService {
     }
   }
 
-  claimPending(
-    limit: number,
-    leaseMs?: number,
-    executionModes: Array<'live' | 'demo'> = ['live', 'demo'],
-  ): Promise<ClaimedTask[]> {
-    return this.execution.claimPending(limit, leaseMs, executionModes);
+  claimPending(limit: number, leaseMs?: number): Promise<ClaimedTask[]> {
+    return this.execution.claimPending(limit, leaseMs);
   }
 
   isCatalogReady(): boolean {
     return this.accountModels.isReady();
   }
 
-  claimDuePolls(
-    limit: number,
-    leaseMs?: number,
-    executionModes: Array<'live' | 'demo'> = ['live'],
-  ): Promise<ClaimedTask[]> {
-    return this.execution.claimDuePolls(limit, leaseMs, executionModes);
+  claimDuePolls(limit: number, leaseMs?: number): Promise<ClaimedTask[]> {
+    return this.execution.claimDuePolls(limit, leaseMs);
   }
 
   startClaimed(task: ClaimedTask, leaseMs?: number): Promise<ClaimedTask | null> {

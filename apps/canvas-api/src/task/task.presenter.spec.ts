@@ -39,7 +39,6 @@ function task(): Task {
     model_revision_id: '22222222-2222-4222-8222-222222222222',
     rate_card_revision_id: null,
     catalog_epoch: '8',
-    execution_mode: 'live',
     external_task_id: 'vendor-task',
     invoke_request_id: '88888888-8888-4888-8888-888888888888',
     invoke_logical_request_id: '99999999-9999-4999-8999-999999999999',

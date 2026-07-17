@@ -3,7 +3,7 @@ import type { ModelInputContract, TaskType } from '@xgcanvas/shared-types';
 /**
  * Normalized model contract served by canvas-api to canvas-web.
  * This is the single shape the canvas inline form consumes (list / schema /
- * cost). Live and demo execution both consume the same Catalog snapshot.
+ * cost). Every generation path consumes the same immutable Catalog snapshot.
  */
 
 export interface ModelProviderRef {

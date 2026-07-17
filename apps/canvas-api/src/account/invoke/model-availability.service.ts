@@ -17,6 +17,8 @@ export interface CurrentModelResolution {
   pin: ModelRevisionPin;
 }
 
+type RouteAvailability = 'available' | 'channel_unavailable' | 'credential_invalid';
+
 @Injectable()
 export class ModelAvailabilityService {
   constructor(private readonly registry: RegistryService) {}
@@ -47,21 +49,18 @@ export class ModelAvailabilityService {
   async requireCurrent(
     modelId: string,
     taskType?: TaskType,
-    executionMode: 'live' | 'demo' = 'live',
     snapshot: RegistrySnapshot = this.registry.getSnapshot(),
   ): Promise<CurrentModelResolution> {
     const entry = this.registry.requireEntry(modelId, snapshot);
     const pin = this.registry.resolveEntryTaskPin(entry, taskType);
-    if (!this.hasEnabledRoute(entry, snapshot, executionMode === 'live')) {
+    const routeAvailability = this.routeAvailability(entry, snapshot);
+    if (routeAvailability !== 'available') {
+      const missingCredential = routeAvailability === 'credential_invalid';
       throw new AdapterError({
-        code:
-          executionMode === 'live'
-            ? ERROR_CODES.CREDENTIAL_INVALID
-            : ERROR_CODES.CHANNEL_UNAVAILABLE,
-        message:
-          executionMode === 'live'
-            ? `model has no enabled channel and credential: ${entry.manifest.id}`
-            : `model has no enabled provider and channel: ${entry.manifest.id}`,
+        code: missingCredential ? ERROR_CODES.CREDENTIAL_INVALID : ERROR_CODES.CHANNEL_UNAVAILABLE,
+        message: missingCredential
+          ? `model has no enabled credential on an allowed channel: ${entry.manifest.id}`
+          : `model has no enabled provider and allowed channel: ${entry.manifest.id}`,
         retryable: false,
       });
     }
@@ -71,11 +70,10 @@ export class ModelAvailabilityService {
   async isCurrentAvailable(
     modelId: string,
     taskType?: TaskType,
-    executionMode: 'live' | 'demo' = 'live',
     snapshot: RegistrySnapshot = this.registry.getSnapshot(),
   ): Promise<boolean> {
     try {
-      await this.requireCurrent(modelId, taskType, executionMode, snapshot);
+      await this.requireCurrent(modelId, taskType, snapshot);
       return true;
     } catch (error) {
       if (isExpectedUnavailable(error)) return false;
@@ -86,7 +84,6 @@ export class ModelAvailabilityService {
   async availableIds(
     modelIds: readonly string[],
     taskType?: TaskType,
-    executionMode: 'live' | 'demo' = 'live',
     snapshot: RegistrySnapshot = this.registry.getSnapshot(),
   ): Promise<Set<string>> {
     const available = new Set<string>();
@@ -94,7 +91,7 @@ export class ModelAvailabilityService {
       try {
         const entry = this.registry.requireEntry(modelId, snapshot);
         this.registry.resolveEntryTaskPin(entry, taskType);
-        if (this.hasEnabledRoute(entry, snapshot, executionMode === 'live')) {
+        if (this.routeAvailability(entry, snapshot) === 'available') {
           available.add(modelId);
         }
       } catch (error) {
@@ -104,24 +101,28 @@ export class ModelAvailabilityService {
     return available;
   }
 
-  private hasEnabledRoute(
+  private routeAvailability(
     entry: ModelRegistryEntry,
     snapshot: RegistrySnapshot,
-    requireCredential: boolean,
-  ): boolean {
+  ): RouteAvailability {
     const provider = this.registry.getProvider(entry.provider_resource_uid, snapshot);
-    if (!provider?.enabled || !isCatalogCurrentLifecycle(provider.document.lifecycle)) return false;
+    if (!provider?.enabled || !isCatalogCurrentLifecycle(provider.document.lifecycle)) {
+      return 'channel_unavailable';
+    }
     const allowed = new Set(entry.allowed_channel_resource_uids);
-    if (allowed.size === 0) return false;
-    return [...snapshot.channelsByResourceUid.values()].some(
+    if (allowed.size === 0) return 'channel_unavailable';
+    const channels = [...snapshot.channelsByResourceUid.values()].filter(
       (channel) =>
         channel.document.provider_uid === entry.provider_resource_uid &&
         channel.enabled &&
         isCatalogCurrentLifecycle(channel.document.lifecycle) &&
         channel.document.adapter_keys.includes(entry.manifest.adapter_key) &&
-        (!requireCredential || channel.enabled_credential_ids.length > 0) &&
         allowed.has(channel.document.resource_uid),
     );
+    if (channels.length === 0) return 'channel_unavailable';
+    return channels.some((channel) => channel.enabled_credential_ids.length > 0)
+      ? 'available'
+      : 'credential_invalid';
   }
 }
 

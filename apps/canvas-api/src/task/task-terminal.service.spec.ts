@@ -217,22 +217,6 @@ describe('TaskTerminalService', () => {
     );
   });
 
-  it('never sends vendor cancellation for demo execution', async () => {
-    const running = task({
-      status: 'running',
-      execution_mode: 'demo',
-      lease_token: LEASE,
-      external_task_id: 'unexpected-vendor-job',
-      channel_resource_uid: CHANNEL_RESOURCE_UID,
-      credential_id: CREDENTIAL_ID,
-    });
-    const failed = task({ ...running, status: 'failed', lease_token: null });
-    (manager.query as jest.Mock).mockResolvedValueOnce([running]).mockResolvedValueOnce([failed]);
-
-    await expect(service.fail(TASK_ID, LEASE, 'MOCK_ERROR', 'failed')).resolves.toBe(true);
-
-    expect(invoke.cancel).not.toHaveBeenCalled();
-  });
 });
 
 function task(patch: Partial<Task>): Task {
@@ -242,7 +226,6 @@ function task(patch: Partial<Task>): Task {
     workspace_id: WORKSPACE_ID,
     model_id: 'test:model',
     ...PIN,
-    execution_mode: 'live',
     status: 'running',
     output_asset_ids: [],
     invoke_request_id: null,

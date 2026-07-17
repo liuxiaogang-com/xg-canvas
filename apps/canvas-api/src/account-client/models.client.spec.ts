@@ -41,18 +41,15 @@ describe('AccountModelsClient task availability', () => {
       model_id: 'example:model',
       pin,
     });
-    expect(availability.requireCurrent).toHaveBeenCalledWith('example:model', 'gen.text', 'live');
+    expect(availability.requireCurrent).toHaveBeenCalledWith('example:model', 'gen.text');
   });
 
   it('resolves feature defaults only through the account-client seam', async () => {
     featureConfig.requireModel.mockResolvedValue('example:model');
 
-    await expect(client.requireFeatureModel('agent', 'gen.text', 'demo')).resolves.toBe(
-      'example:model',
-    );
+    await expect(client.requireFeatureModel('agent', 'gen.text')).resolves.toBe('example:model');
     expect(featureConfig.requireModel).toHaveBeenCalledWith('agent', {
       taskType: 'gen.text',
-      executionMode: 'demo',
     });
   });
 
@@ -61,23 +58,17 @@ describe('AccountModelsClient task availability', () => {
     modelList.getAvailableModels.mockResolvedValue(models);
 
     await expect(
-      client.getAvailableModels({
-        taskType: 'gen.image',
-        executionMode: 'demo',
-      }),
+      client.getAvailableModels({ taskType: 'gen.image' }),
     ).resolves.toBe(models);
-    expect(modelList.getAvailableModels).toHaveBeenCalledWith({
-      taskType: 'gen.image',
-      executionMode: 'demo',
-    });
+    expect(modelList.getAvailableModels).toHaveBeenCalledWith({ taskType: 'gen.image' });
   });
 
-  it('projects model details through the seam without changing execution mode', async () => {
+  it('projects model details through the seam', async () => {
     const detail = { model_id: 'example:model' };
     modelList.getModelDetail.mockResolvedValue(detail);
 
-    await expect(client.getModelDetail('example:model', 'demo')).resolves.toBe(detail);
-    expect(modelList.getModelDetail).toHaveBeenCalledWith('example:model', 'demo');
+    await expect(client.getModelDetail('example:model')).resolves.toBe(detail);
+    expect(modelList.getModelDetail).toHaveBeenCalledWith('example:model');
   });
 
   it('projects native-currency estimates through the seam', () => {

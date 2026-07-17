@@ -9,18 +9,12 @@ describe('ModelsController account-client boundary', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('passes demo availability reads through AccountModelsClient', async () => {
+  it('passes availability reads through AccountModelsClient', async () => {
     models.getAvailableModels.mockResolvedValue([]);
-    const controller = new ModelsController(
-      models as never,
-      { get: jest.fn(() => 'true') } as never,
-    );
+    const controller = new ModelsController(models as never);
 
     await expect(controller.list('gen.image')).resolves.toEqual([]);
-    expect(models.getAvailableModels).toHaveBeenCalledWith({
-      taskType: 'gen.image',
-      executionMode: 'demo',
-    });
+    expect(models.getAvailableModels).toHaveBeenCalledWith({ taskType: 'gen.image' });
   });
 
   it('preserves an unavailable native-currency estimate', async () => {
@@ -32,10 +26,7 @@ describe('ModelsController account-client boundary', () => {
     };
     models.getModelDetail.mockResolvedValue(detail);
     models.estimateCost.mockReturnValue(estimate);
-    const controller = new ModelsController(
-      models as never,
-      { get: jest.fn(() => 'false') } as never,
-    );
+    const controller = new ModelsController(models as never);
 
     await expect(
       controller.estimateCost({
@@ -43,7 +34,7 @@ describe('ModelsController account-client boundary', () => {
         params: {},
       }),
     ).resolves.toBe(estimate);
-    expect(models.getModelDetail).toHaveBeenCalledWith('example:model', 'live');
+    expect(models.getModelDetail).toHaveBeenCalledWith('example:model');
     expect(models.estimateCost).toHaveBeenCalledWith(detail, {});
   });
 });

@@ -8,7 +8,6 @@ import { LibraryModule } from '../library/library.module';
 import { ProjectModule } from '../project/project.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { TaskController } from './task.controller';
-import { MockExecutorService } from './mock-executor.service';
 import { TaskExecutorService } from './task-executor.service';
 import { TaskExecutionStore } from './task-execution.store';
 import { TaskNodeWritebackService } from './task-node-writeback.service';
@@ -34,7 +33,6 @@ import { TaskRetryService } from './task-retry.service';
     TaskService,
     TaskExecutionStore,
     TaskExecutorService,
-    MockExecutorService,
     TaskPollerService,
     TaskRunnerService,
     TaskNodeWritebackService,

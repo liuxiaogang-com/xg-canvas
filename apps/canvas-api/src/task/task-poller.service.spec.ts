@@ -101,7 +101,6 @@ function pollTask() {
     channel_route: { key: 'example', base_url: 'https://vendor.test', options: {} },
     credential_id: '44444444-4444-4444-8444-444444444444',
     model_id: 'example:model',
-    execution_mode: 'live',
     model_resource_uid: '55555555-5555-4555-8555-555555555555',
     model_revision_id: '66666666-6666-4666-8666-666666666666',
     rate_card_revision_id: null,

@@ -48,7 +48,6 @@ export interface FeatureModelOptionView {
 
 export interface FeatureModelResolveOptions {
   taskType?: TaskType;
-  executionMode?: 'live' | 'demo';
 }
 
 @Injectable()
@@ -177,7 +176,6 @@ export class FeatureConfigService {
     const available = await this.availability.availableIds(
       candidates.map((entry) => entry.manifest.id),
       requiredTaskType,
-      options.executionMode ?? 'live',
       snapshot,
     );
     const selected = candidates.find((entry) => available.has(entry.manifest.id));

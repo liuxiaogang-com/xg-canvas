@@ -102,21 +102,19 @@ describe('ModelListService Catalog projection', () => {
     expect(availability.availableIds).toHaveBeenCalledWith(
       ['example:model'],
       'gen.text',
-      'live',
       snapshot,
     );
     expect(registry.getSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('loads detail by Model resource UID and forwards demo availability mode', async () => {
-    await expect(service.getModelDetail('example:model', 'demo')).resolves.toEqual({
+  it('loads detail by Model resource UID through unified availability', async () => {
+    await expect(service.getModelDetail('example:model')).resolves.toEqual({
       model_id: 'example:model',
       catalog_epoch: '12',
     });
     expect(availability.isCurrentAvailable).toHaveBeenCalledWith(
       'example:model',
       undefined,
-      'demo',
       snapshot,
     );
     expect(definitions.findOne).toHaveBeenCalledWith(MODEL_UID);

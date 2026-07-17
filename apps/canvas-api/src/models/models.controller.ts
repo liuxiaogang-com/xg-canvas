@@ -1,5 +1,4 @@
 import { Body, Controller, Get, NotFoundException, Post, Query } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { validateParams } from '@xgcanvas/constraint-engine';
 
@@ -16,33 +15,22 @@ import type {
 /**
  * Model read API consumed by the canvas inline form (list / schema / cost /
  * validate). Model ids may contain '/' (e.g. custom/vendor/model-v1), so the id is passed
- * via query/body rather than a path param. Both live and demo execution read
- * the same immutable Catalog snapshot; demo mode only relaxes the requirement
- * for an enabled credential because execution is handled by the mock runner.
+ * via query/body rather than a path param. All responses use the same immutable
+ * Catalog snapshot and require a currently enabled provider route and credential.
  */
 @Controller('models')
 export class ModelsController {
-  private readonly demoMode: boolean;
-
-  constructor(
-    private readonly models: AccountModelsClient,
-    config: ConfigService,
-  ) {
-    this.demoMode = config.get<string>('DEMO_MODE', 'false') === 'true';
-  }
+  constructor(private readonly models: AccountModelsClient) {}
 
   @Get()
   async list(@Query('task_type') taskType?: string): Promise<RichModelSummary[]> {
-    const models = await this.models.getAvailableModels({
-      taskType,
-      executionMode: this.executionMode,
-    });
+    const models = await this.models.getAvailableModels({ taskType });
     return models.map(toRichModel);
   }
 
   @Get('schema')
   async schema(@Query('id') id: string): Promise<ModelSchemaResponse> {
-    const m = await this.models.getModelDetail(id, this.executionMode);
+    const m = await this.models.getModelDetail(id);
     if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: id });
     return {
       model_id: m.model_id,
@@ -57,21 +45,17 @@ export class ModelsController {
 
   @Post('estimate-cost')
   async estimateCost(@Body() body: ModelParamsDto): Promise<CostEstimate> {
-    const m = await this.models.getModelDetail(body.model_id, this.executionMode);
+    const m = await this.models.getModelDetail(body.model_id);
     if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: body.model_id });
     return this.models.estimateCost(m, body.params ?? {});
   }
 
   @Post('validate-params')
   async validate(@Body() body: ModelParamsDto): Promise<ValidateParamsResult> {
-    const m = await this.models.getModelDetail(body.model_id, this.executionMode);
+    const m = await this.models.getModelDetail(body.model_id);
     if (!m) throw new NotFoundException({ code: 'MODEL_NOT_FOUND', message: body.model_id });
     const r = validateParams(body.params ?? {}, m.param_schema, m.param_constraints);
     return { ok: r.valid, errors: r.errors.map((x) => ({ field: x.field, message: x.message })) };
-  }
-
-  private get executionMode(): 'live' | 'demo' {
-    return this.demoMode ? 'demo' : 'live';
   }
 }
 

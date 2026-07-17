@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { MockExecutorService } from './mock-executor.service';
 import { TaskExecutorService } from './task-executor.service';
 import { TaskPollerService } from './task-poller.service';
 import { type ClaimedTask, TaskService } from './task.service';
@@ -25,7 +24,6 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly tasks: TaskService,
     private readonly executor: TaskExecutorService,
-    private readonly mockExecutor: MockExecutorService,
     private readonly poller: TaskPollerService,
     config: ConfigService,
   ) {
@@ -55,12 +53,11 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   private async tick(): Promise<void> {
     if (!this.tasks.isCatalogReady()) return;
     const claimed = await this.claimWithinCapacity((slots) =>
-      this.tasks.claimPending(slots, this.leaseMs, ['live', 'demo']),
+      this.tasks.claimPending(slots, this.leaseMs),
     );
     if (claimed.length > 0) {
       for (const t of claimed) {
-        const runner = t.execution_mode === 'demo' ? this.mockExecutor : this.executor;
-        this.withHeartbeat(t, (signal) => runner.run(t, signal))
+        this.withHeartbeat(t, (signal) => this.executor.run(t, signal))
           .catch((e) => this.logger.error(`task ${t.id} crashed: ${(e as Error).message}`))
           .finally(() => {
             this.inFlight -= 1;
@@ -72,7 +69,7 @@ export class TaskRunnerService implements OnModuleInit, OnModuleDestroy {
   private async pollRunning(): Promise<void> {
     if (!this.tasks.isCatalogReady()) return;
     const due = await this.claimWithinCapacity((slots) =>
-      this.tasks.claimDuePolls(slots, this.leaseMs, ['live']),
+      this.tasks.claimDuePolls(slots, this.leaseMs),
     );
     for (const t of due) {
       this.withHeartbeat(t, (signal) => this.poller.pollOne(t, signal))

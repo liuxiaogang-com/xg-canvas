@@ -174,7 +174,6 @@ export class TaskTerminalService {
 
   private cancelVendorBestEffort(task: Task): void {
     if (
-      task.execution_mode !== 'live' ||
       !task.external_task_id ||
       !task.channel_resource_uid ||
       !task.channel_revision_id ||

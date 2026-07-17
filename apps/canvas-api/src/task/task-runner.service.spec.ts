@@ -1,6 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
 
-import type { MockExecutorService } from './mock-executor.service';
 import type { TaskExecutorService } from './task-executor.service';
 import type { TaskPollerService } from './task-poller.service';
 import { TaskRunnerService } from './task-runner.service';
@@ -14,7 +13,6 @@ describe('TaskRunnerService concurrency', () => {
     isCatalogReady: jest.fn(() => true),
   } as unknown as TaskService;
   const executor = { run: jest.fn() } as unknown as TaskExecutorService;
-  const mockExecutor = { run: jest.fn() } as unknown as MockExecutorService;
   const poller = { pollOne: jest.fn() } as unknown as TaskPollerService;
 
   beforeEach(() => {
@@ -43,28 +41,25 @@ describe('TaskRunnerService concurrency', () => {
 
     pollWork.resolve();
     await flushPromises();
-    expect(tasks.claimPending).toHaveBeenCalledWith(1, 120_000, ['live', 'demo']);
-    expect(tasks.claimDuePolls).toHaveBeenCalledWith(1, 120_000, ['live']);
+    expect(tasks.claimPending).toHaveBeenCalledWith(1, 120_000);
+    expect(tasks.claimDuePolls).toHaveBeenCalledWith(1, 120_000);
   });
 
-  it('dispatches each claimed task according to its persisted execution mode', async () => {
-    (tasks.claimPending as jest.Mock).mockResolvedValue([
-      claimed('live-task', 'live'),
-      claimed('demo-task', 'demo'),
-    ]);
+  it('dispatches every claimed task through the real executor', async () => {
+    (tasks.claimPending as jest.Mock).mockResolvedValue([claimed('task-1'), claimed('task-2')]);
     (executor.run as jest.Mock).mockResolvedValue(undefined);
-    (mockExecutor.run as jest.Mock).mockResolvedValue(undefined);
-    const runner = makeRunner({ TASK_CONCURRENCY: '2', DEMO_MODE: 'true' });
+    const runner = makeRunner({ TASK_CONCURRENCY: '2' });
 
     await callPrivate(runner, 'tick');
     await flushPromises();
 
+    expect(executor.run).toHaveBeenCalledTimes(2);
     expect(executor.run).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'live-task' }),
+      expect.objectContaining({ id: 'task-1' }),
       expect.any(AbortSignal),
     );
-    expect(mockExecutor.run).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'demo-task' }),
+    expect(executor.run).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-2' }),
       expect.any(AbortSignal),
     );
   });
@@ -79,7 +74,7 @@ describe('TaskRunnerService concurrency', () => {
     const config = {
       get: jest.fn((key: string, fallback?: string) => values[key] ?? fallback),
     } as unknown as ConfigService;
-    return new TaskRunnerService(tasks, executor, mockExecutor, poller, config);
+    return new TaskRunnerService(tasks, executor, poller, config);
   }
 });
 
@@ -103,10 +98,9 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function claimed(id: string, executionMode: 'live' | 'demo' = 'live'): ClaimedTask {
+function claimed(id: string): ClaimedTask {
   return {
     id,
-    execution_mode: executionMode,
     lease_token: '11111111-1111-4111-8111-111111111111',
     lease_expires_at: new Date(Date.now() + 60_000),
   } as ClaimedTask;

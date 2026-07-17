@@ -61,7 +61,6 @@ describe('FeatureConfigService', () => {
     expect(availability.availableIds).toHaveBeenCalledWith(
       ['example:model-a', 'example:model-b'],
       'gen.text',
-      'live',
       expect.any(Object),
     );
   });
@@ -83,7 +82,6 @@ describe('FeatureConfigService', () => {
     expect(availability.availableIds).toHaveBeenCalledWith(
       ['example:model-a'],
       'gen.text',
-      'live',
       expect.any(Object),
     );
   });

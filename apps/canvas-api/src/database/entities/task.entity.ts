@@ -40,9 +40,6 @@ export class Task {
   @Column({ type: 'bigint' })
   catalog_epoch: string;
 
-  @Column({ type: 'varchar', length: 16, default: 'live' })
-  execution_mode: 'live' | 'demo';
-
   @Column({ type: 'varchar', length: 200, nullable: true })
   external_task_id: string | null;
 

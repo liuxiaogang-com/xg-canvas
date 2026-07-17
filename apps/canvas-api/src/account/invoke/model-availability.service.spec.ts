@@ -57,14 +57,14 @@ describe('ModelAvailabilityService', () => {
     expect(registry.getSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('requires an enabled credential on an allowed Channel resource UID for live mode', async () => {
+  it('requires an enabled credential on an allowed Channel resource UID', async () => {
     registry.getSnapshot.mockReturnValue({
       channelsByResourceUid: new Map([[CHANNEL_UID, liveChannel(CHANNEL_UID, [])]]),
     });
 
-    await expect(service.requireCurrent('example:model', 'gen.text', 'live')).rejects.toMatchObject(
-      { code: 'CREDENTIAL_INVALID' },
-    );
+    await expect(service.requireCurrent('example:model', 'gen.text')).rejects.toMatchObject({
+      code: 'CREDENTIAL_INVALID',
+    });
   });
 
   it('does not accept an enabled credential attached to a different Channel resource', async () => {
@@ -73,28 +73,15 @@ describe('ModelAvailabilityService', () => {
       channelsByResourceUid: new Map([[otherUid, liveChannel(otherUid)]]),
     });
 
-    await expect(service.availableIds(['example:model'], undefined, 'live')).resolves.toEqual(
-      new Set(),
-    );
+    await expect(service.availableIds(['example:model'])).resolves.toEqual(new Set());
   });
 
-  it('allows demo execution without a Credential while still requiring enabled Provider and Channel settings', async () => {
-    registry.getSnapshot.mockReturnValue({
-      channelsByResourceUid: new Map([[CHANNEL_UID, liveChannel(CHANNEL_UID, [])]]),
-    });
-
-    await expect(service.requireCurrent('example:model', 'gen.text', 'demo')).resolves.toEqual({
-      model_id: 'example:model',
-      pin: PIN,
-    });
-  });
-
-  it('rejects demo execution when the Provider or allowed Channel is disabled', async () => {
+  it('rejects an otherwise valid model when the Provider is disabled', async () => {
     registry.getProvider.mockReturnValue({ ...provider, enabled: false });
 
-    await expect(service.requireCurrent('example:model', 'gen.text', 'demo')).rejects.toMatchObject(
-      { code: 'CHANNEL_UNAVAILABLE' },
-    );
+    await expect(service.requireCurrent('example:model', 'gen.text')).rejects.toMatchObject({
+      code: 'CHANNEL_UNAVAILABLE',
+    });
   });
 
   it('does not hide unexpected registry failures as unavailability', async () => {

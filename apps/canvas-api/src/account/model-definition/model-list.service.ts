@@ -36,7 +36,6 @@ export interface ModelListItem {
 export interface ModelListFilter {
   taskType?: string;
   capabilities?: string[];
-  executionMode?: 'live' | 'demo';
 }
 
 export type ModelDetail = ModelDefinitionView & { catalog_epoch: string };
@@ -64,7 +63,6 @@ export class ModelListService {
     const available = await this.availability.availableIds(
       entries.map((entry) => entry.manifest.id),
       filter.taskType as TaskType | undefined,
-      filter.executionMode ?? 'live',
       snapshot,
     );
     return entries.flatMap((entry) => {
@@ -101,17 +99,14 @@ export class ModelListService {
     });
   }
 
-  async getModelDetail(
-    modelId: string,
-    executionMode: 'live' | 'demo' = 'live',
-  ): Promise<ModelDetail | null> {
+  async getModelDetail(modelId: string): Promise<ModelDetail | null> {
     const snapshot = this.registry.getSnapshot();
     const entry = this.registry.getEntry(modelId, snapshot);
     if (
       !entry ||
       !entry.manifest.enabled ||
       entry.manifest.visibility !== 'public' ||
-      !(await this.availability.isCurrentAvailable(modelId, undefined, executionMode, snapshot))
+      !(await this.availability.isCurrentAvailable(modelId, undefined, snapshot))
     )
       return null;
     return {

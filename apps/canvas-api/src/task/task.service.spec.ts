@@ -11,7 +11,6 @@ import type { CreateTaskDto } from './dto/task.dto';
 import { TaskService } from './task.service';
 import type { TaskRetryService } from './task-retry.service';
 import type { TaskTerminalService } from './task-terminal.service';
-import type { ConfigService } from '@nestjs/config';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const WORKSPACE_ID = '22222222-2222-4222-8222-222222222222';
@@ -51,9 +50,6 @@ describe('TaskService.create source-node binding', () => {
     resolveTaskPin: jest.fn(),
   } as unknown as AccountModelsClient;
   const retryTasks = { retry: jest.fn() } as unknown as TaskRetryService;
-  const config = {
-    get: jest.fn((_key: string, fallback: unknown) => fallback),
-  } as unknown as ConfigService;
 
   let service: TaskService;
 
@@ -71,7 +67,6 @@ describe('TaskService.create source-node binding', () => {
       execution,
       accountModels,
       retryTasks,
-      config,
     );
     (accountModels.resolveTaskPin as jest.Mock).mockResolvedValue({
       model_id: 'test:model',
@@ -156,9 +151,8 @@ describe('TaskService.create source-node binding', () => {
       workspace_id: WORKSPACE_ID,
       model_resource_uid: MODEL_RESOURCE_UID,
       model_revision_id: MODEL_REVISION_ID,
-      execution_mode: 'live',
     });
-    expect(accountModels.resolveTaskPin).toHaveBeenCalledWith('test:model', 'gen.image', 'live');
+    expect(accountModels.resolveTaskPin).toHaveBeenCalledWith('test:model', 'gen.image');
   });
 
   it('claims work with a durable lease and compare-and-set token', async () => {
@@ -177,7 +171,7 @@ describe('TaskService.create source-node binding', () => {
     expect(claimed).toHaveLength(1);
     expect(ds.query).toHaveBeenCalledWith(
       expect.stringMatching(/FOR UPDATE SKIP LOCKED[\s\S]+lease_token = gen_random_uuid\(\)/),
-      [3, 45_000, ['live', 'demo']],
+      [3, 45_000],
     );
   });
 

@@ -122,8 +122,6 @@ CREATE TABLE canvas.tasks (
   model_revision_id UUID NOT NULL,
   rate_card_revision_id UUID,
   catalog_epoch BIGINT NOT NULL CHECK (catalog_epoch >= 0),
-  execution_mode VARCHAR(16) NOT NULL DEFAULT 'live'
-    CHECK (execution_mode IN ('live', 'demo')),
   external_task_id VARCHAR(200),
   invoke_request_id UUID,
   invoke_logical_request_id UUID,
