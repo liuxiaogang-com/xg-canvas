@@ -13,7 +13,7 @@ import { MergeService } from './merge.service';
 import { ProviderRegistry } from './providers/provider-registry';
 import { VerificationService } from './verification.service';
 
-/** Multi-identity account core: the find-or-create funnel + password/email/dev
+/** Multi-identity account core: the find-or-create funnel + password/email
  *  helpers, verification codes/magic-links, login-method config, and the
  *  account merge / re-bind state machine. */
 @Module({

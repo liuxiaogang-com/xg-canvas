@@ -29,4 +29,8 @@ describe('AuthConfigService', () => {
       service({ NODE_ENV: 'development', AUTH_EMAIL_CODE_ENABLED: 'true' }, false).methods(),
     ).toEqual(['password', 'email_code']);
   });
+
+  it('returns only the supported public config fields', () => {
+    expect(service().snapshot()).toEqual({ methods: ['password'] });
+  });
 });

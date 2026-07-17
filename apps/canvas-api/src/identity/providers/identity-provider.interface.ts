@@ -3,7 +3,6 @@ import type { ResolvedIdentity } from '../identity.service';
 export interface AuthorizeParams {
   state: string;
   redirectUri: string;
-  hint?: string; // optional caller-supplied tag (used by the dev mock provider)
 }
 
 export interface ResolveParams {
@@ -15,10 +14,10 @@ export interface ResolveParams {
  * A redirect-style OAuth login source. Implement `authorizeUrl` (where to send
  * the browser) and `resolve` (turn the callback into a ResolvedIdentity). New
  * providers (e.g. enterprise WeChat) are one file + one env block — see
- * docs/adapter-guide.md style. The dev `mock` provider implements both locally.
+ * docs/adapter-guide.md style.
  */
 export interface IdentityProvider {
-  readonly key: string; // wechat_oa | wechat_open | feishu | mock | ...
+  readonly key: string; // wechat_oa | wechat_open | feishu | ...
   authorizeUrl(p: AuthorizeParams): string;
   resolve(p: ResolveParams): Promise<ResolvedIdentity>;
 }

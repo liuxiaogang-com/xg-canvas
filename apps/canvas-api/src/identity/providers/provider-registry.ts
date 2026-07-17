@@ -1,22 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { AuthConfigService } from '../auth-config.service';
 import { FeishuProvider } from './feishu.provider';
 import type { IdentityProvider } from './identity-provider.interface';
-import { MockProvider } from './mock.provider';
 import { WeChatProvider } from './wechat.provider';
 
 /**
- * Builds the live provider set from env at boot. A provider appears only once
- * its creds are present; the dev `mock` provider is added when mock is enabled.
- * Adding e.g. enterprise WeChat = one provider file + one env block here.
+ * Builds the provider set from env at boot. A provider appears only once its
+ * credentials and the public callback base URL are present.
  */
 @Injectable()
 export class ProviderRegistry {
   private readonly providers = new Map<string, IdentityProvider>();
 
-  constructor(config: ConfigService, authConfig: AuthConfigService) {
+  constructor(config: ConfigService) {
     const externalCallbacksReady = !!config.get<string>('PUBLIC_BASE_URL')?.trim();
     const oaAppid = config.get<string>('WECHAT_OA_APPID');
     const oaSecret = config.get<string>('WECHAT_OA_SECRET');
@@ -45,8 +42,6 @@ export class ProviderRegistry {
     const fsId = config.get<string>('FEISHU_APP_ID');
     const fsSecret = config.get<string>('FEISHU_APP_SECRET');
     if (externalCallbacksReady && fsId && fsSecret) this.add(new FeishuProvider(fsId, fsSecret));
-
-    if (authConfig.mockEnabled) this.add(new MockProvider());
   }
 
   private add(p: IdentityProvider): void {

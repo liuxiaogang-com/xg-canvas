@@ -13,7 +13,6 @@ interface AuthState {
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string, displayName: string): Promise<void>;
   logout(): Promise<void>;
-  devLogin(): Promise<void>;
   applyAuth(r: AuthResult): void;
   reset(): void;
 }
@@ -64,12 +63,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       usePermStore.getState().reset();
       set({ me: null });
     }
-  },
-  async devLogin() {
-    set({ error: null });
-    const r = await authApi.devLogin();
-    clearAssetUrlCache();
-    set({ me: { user_id: r.user.id, email: r.user.email, workspace_id: r.workspace_id } });
   },
 }));
 

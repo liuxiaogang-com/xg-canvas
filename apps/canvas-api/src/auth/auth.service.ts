@@ -50,11 +50,6 @@ export class AuthService {
     return this.issueForUser(user, ctx, 'password');
   }
 
-  async devLogin(ctx: LoginContext = {}): Promise<AuthResult> {
-    const userId = await this.identity.demoUser();
-    return this.issueForUserId(userId, ctx, 'password');
-  }
-
   /** Issue a session for an already-resolved user (shared by all login paths). */
   async issueForUserId(userId: string, ctx: LoginContext, createdVia: string): Promise<AuthResult> {
     const user = await this.users.findOne({ where: { id: userId } });

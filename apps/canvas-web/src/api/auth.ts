@@ -13,9 +13,8 @@ export interface AuthResult {
 }
 
 export interface AuthConfig {
-  methods: string[]; // password | email_code | phone_code | wechat | feishu | mock
-  mock: boolean;
-  oauth: string[]; // actual provider keys to build buttons: wechat_oa | wechat_open | feishu | mock
+  methods: string[]; // password | email_code | phone_code | wechat | feishu
+  oauth: string[]; // actual provider keys to build buttons: wechat_oa | wechat_open | feishu
 }
 
 export interface SendCodeResult {
@@ -40,7 +39,6 @@ export const authApi = {
     api<AuthResult>('/auth/login', { method: 'POST', body: { email, password } }),
   logout: () => api<void>('/auth/logout', { method: 'POST' }),
   me: () => api<Me>('/auth/me'),
-  devLogin: () => api<AuthResult>('/auth/dev-login', { method: 'POST' }),
   sendEmailCode: (email: string) =>
     api<SendCodeResult>('/auth/email/code', { method: 'POST', body: { email } }),
   emailLogin: (email: string, code: string) =>
@@ -60,8 +58,7 @@ export const setupApi = {
 };
 
 /** Kick off a full-page OAuth redirect (login or, when authed, bind). */
-export function oauthStart(key: string, mode: 'login' | 'bind' = 'login', hint?: string): void {
+export function oauthStart(key: string, mode: 'login' | 'bind' = 'login'): void {
   const base = mode === 'bind' ? `/api/v1/me/identities/oauth/${key}/start` : `/api/v1/auth/oauth/${key}/start`;
-  const q = hint ? `?hint=${encodeURIComponent(hint)}` : '';
-  window.location.assign(base + q);
+  window.location.assign(base);
 }

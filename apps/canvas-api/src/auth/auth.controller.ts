@@ -51,19 +51,6 @@ export class AuthController {
   }
 
   @Public()
-  @Post('dev-login')
-  @HttpCode(200)
-  async devLogin(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResult> {
-    if (!this.authConfig.mockEnabled) throw new NotFoundException();
-    const r = await this.auth.devLogin(buildLoginContext(req));
-    setSessionCookie(req, res, r.token);
-    return r;
-  }
-
-  @Public()
   @Post('logout')
   @HttpCode(204)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {

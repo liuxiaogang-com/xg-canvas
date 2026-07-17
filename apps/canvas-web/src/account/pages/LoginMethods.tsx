@@ -23,7 +23,6 @@ const PROVIDER: Record<string, string> = {
   wechat_oa: '微信',
   wechat_open: '微信',
   feishu: '飞书',
-  mock: 'Mock',
 };
 
 export default function LoginMethods() {

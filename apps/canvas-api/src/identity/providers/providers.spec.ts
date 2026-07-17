@@ -1,5 +1,4 @@
 import { FeishuProvider } from './feishu.provider';
-import { MockProvider } from './mock.provider';
 import { WeChatProvider } from './wechat.provider';
 
 describe('WeChatProvider.authorizeUrl', () => {
@@ -26,19 +25,5 @@ describe('FeishuProvider.authorizeUrl', () => {
     expect(url).toContain('open.feishu.cn');
     expect(url).toContain('app_id=cli_x');
     expect(url).toContain('state=st');
-  });
-});
-
-describe('MockProvider.resolve', () => {
-  const p = new MockProvider();
-  it('takes a plain uid with no union', async () => {
-    const r = await p.resolve({ query: { mock_uid: 'abc' }, redirectUri: '' });
-    expect(r.providerUid).toBe('abc');
-    expect(r.unionKey).toBeNull();
-  });
-  it('parses union:KEY:UID for unionid-merge demos', async () => {
-    const r = await p.resolve({ query: { mock_uid: 'union:U1:openidA' }, redirectUri: '' });
-    expect(r.providerUid).toBe('openidA');
-    expect(r.unionKey).toBe('U1');
   });
 });

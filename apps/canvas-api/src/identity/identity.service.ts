@@ -10,7 +10,7 @@ import { normalizeEmail, normalizePhone } from './normalize';
 
 /** A login resolved from any provider, ready to be matched-or-created into a user. */
 export interface ResolvedIdentity {
-  provider: string; // email | phone | wechat_mp | wechat_oa | wechat_open | feishu | wecom | mock
+  provider: string; // email | phone | wechat_mp | wechat_oa | wechat_open | feishu | wecom | ...
   providerUid: string; // normalized stable key (unionid>openid, E.164, lower email, ...)
   unionKey?: string | null;
   appId?: string | null;
@@ -140,14 +140,6 @@ export class IdentityService {
     const pw = await this.identities.findOne({ where: { provider: 'password', provider_uid: norm } });
     if (!pw?.secret_hash || !(await this.passwords.verify(password, pw.secret_hash))) return null;
     return pw.user_id;
-  }
-
-  /** Ensure the demo user exists (dev-login) and return its id. */
-  async demoUser(): Promise<string> {
-    const email = 'demo@xgcanvas.test';
-    const existing = await this.identities.findOne({ where: { provider: 'email', provider_uid: email } });
-    if (existing) return existing.user_id;
-    return this.registerWithPassword(email, 'demo12345678', 'Demo 用户');
   }
 
   /** The user's email (from their email identity) — drives role resolution. */

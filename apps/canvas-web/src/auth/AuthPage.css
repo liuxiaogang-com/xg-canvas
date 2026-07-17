@@ -230,27 +230,6 @@
   background: var(--color-border-subtle);
 }
 
-/* dev / demo footer — deliberately quiet */
-.auth-dev {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px dashed var(--color-border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-.auth-dev__label {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-.auth-dev .btn--ghost {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
 /* ============================ responsive ============================ */
 @media (max-width: 960px) {
   .auth-hero {

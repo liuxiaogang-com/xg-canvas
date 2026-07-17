@@ -8,7 +8,6 @@ import {
   NotFoundException,
   Param,
   Post,
-  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -87,7 +86,6 @@ export class MeIdentityController {
   bindOauthStart(
     @CurrentUser() user: AuthUser,
     @Param('key') key: string,
-    @Query('hint') hint: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
@@ -95,6 +93,6 @@ export class MeIdentityController {
     if (!provider) throw new NotFoundException({ code: 'NOT_FOUND', message: `unknown provider ${key}` });
     const state = randomBytes(16).toString('hex');
     setOAuthState(req, res, { state, key, mode: 'bind', userId: user.user_id });
-    res.redirect(provider.authorizeUrl({ state, redirectUri: oauthCallbackUri(this.config, key), hint }));
+    res.redirect(provider.authorizeUrl({ state, redirectUri: oauthCallbackUri(this.config, key) }));
   }
 }

@@ -25,7 +25,6 @@ export function loginMethodCount(rows: AuthIdentity[], excludeId?: string): numb
     else if ((i.provider === 'email' || i.provider === 'phone') && i.verified_at) groups.add(i.provider);
     else if (i.provider.startsWith('wechat')) groups.add('wechat');
     else if (i.provider === 'feishu') groups.add('feishu');
-    else if (i.provider === 'mock') groups.add('mock');
   }
   return groups.size;
 }

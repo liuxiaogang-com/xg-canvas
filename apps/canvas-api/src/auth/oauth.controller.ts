@@ -16,7 +16,7 @@ import { buildLoginContext } from './login-context';
 import { clearOAuthState, oauthCallbackUri, readOAuthState, setOAuthState } from './oauth-state';
 import { setSessionCookie } from './session-cookie';
 
-/** Redirect OAuth login (wechat_oa / wechat_open / feishu / mock). Bind reuses
+/** Redirect OAuth login (wechat_oa / wechat_open / feishu). Bind reuses
  *  the same callback via an authenticated start endpoint (see me-identity). */
 @ApiTags('auth')
 @Controller('auth/oauth')
@@ -33,7 +33,6 @@ export class OAuthController {
   @Get(':key/start')
   start(
     @Param('key') key: string,
-    @Query('hint') hint: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
@@ -41,7 +40,7 @@ export class OAuthController {
     if (!provider) throw new NotFoundException({ code: 'NOT_FOUND', message: `unknown provider ${key}` });
     const state = randomBytes(16).toString('hex');
     setOAuthState(req, res, { state, key, mode: 'login' });
-    res.redirect(provider.authorizeUrl({ state, redirectUri: oauthCallbackUri(this.config, key), hint }));
+    res.redirect(provider.authorizeUrl({ state, redirectUri: oauthCallbackUri(this.config, key) }));
   }
 
   @Public()

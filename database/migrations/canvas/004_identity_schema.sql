@@ -14,7 +14,7 @@ BEGIN;
 CREATE TABLE canvas.auth_identities (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES canvas.users(id) ON DELETE CASCADE,
-  provider      VARCHAR(32) NOT NULL,   -- password|email|phone|wechat_mp|wechat_oa|wechat_open|feishu|wecom|mock
+  provider      VARCHAR(32) NOT NULL,   -- password|email|phone|wechat_mp|wechat_oa|wechat_open|feishu|wecom|...
   provider_uid  VARCHAR(191) NOT NULL,  -- normalized stable key
   union_key     VARCHAR(191),           -- wechat unionid / feishu union_id (cross-app merge key)
   app_id        VARCHAR(128),           -- source app: miniapp appid / oa appid / corpid

@@ -20,14 +20,6 @@ function FeishuIcon() {
   );
 }
 
-function DevIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="m9 8-4 4 4 4M15 8l4 4-4 4" />
-    </svg>
-  );
-}
-
 function GlobeIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
@@ -41,7 +33,6 @@ const PROVIDERS: Record<string, { label: string; icon: JSX.Element }> = {
   wechat_open: { label: '微信登录', icon: <WeChatIcon /> },
   wechat_oa: { label: '微信登录', icon: <WeChatIcon /> },
   feishu: { label: '飞书登录', icon: <FeishuIcon /> },
-  mock: { label: 'Mock 登录(开发)', icon: <DevIcon /> },
 };
 
 /** Row of round quick-login icons (WeChat redirects to its official QR page). */
@@ -58,18 +49,7 @@ export function QuickLogin({ keys }: { keys: string[] }) {
             className="auth-quick__btn"
             title={p.label}
             aria-label={p.label}
-            onClick={() => {
-              let hint: string | undefined;
-              if (key === 'mock') {
-                const v = window.prompt(
-                  'Mock 用户标识(uid)。用 union:KEY:UID 可演示同一 unionid 归并:',
-                  'mock-dev',
-                );
-                if (v === null) return;
-                hint = v;
-              }
-              oauthStart(key, 'login', hint);
-            }}
+            onClick={() => oauthStart(key, 'login')}
           >
             {p.icon}
           </button>

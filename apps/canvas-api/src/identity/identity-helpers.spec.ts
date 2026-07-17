@@ -55,10 +55,10 @@ describe('identityLabel', () => {
   });
   it('uses raw_profile.displayName for oauth', () => {
     expect(
-      identityLabel(ident({ provider: 'mock', provider_uid: 'openid1', raw_profile: { displayName: '昵称' } })),
+      identityLabel(ident({ provider: 'wechat_oa', provider_uid: 'openid1', raw_profile: { displayName: '昵称' } })),
     ).toBe('昵称');
   });
   it('falls back to uid when no displayName', () => {
-    expect(identityLabel(ident({ provider: 'mock', provider_uid: 'openid1', raw_profile: {} }))).toBe('openid1');
+    expect(identityLabel(ident({ provider: 'wechat_oa', provider_uid: 'openid1', raw_profile: {} }))).toBe('openid1');
   });
 });

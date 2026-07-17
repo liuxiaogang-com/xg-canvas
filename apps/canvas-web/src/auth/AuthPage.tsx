@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { authApi, type AuthConfig } from '../api/auth';
-import { useAuthStore } from '../store/auth';
 import { LoginFlow } from './LoginFlow';
 import { RegisterFlow } from './RegisterFlow';
 import './AuthPage.css';
@@ -115,7 +114,6 @@ export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const nav = useNavigate();
   const [search] = useSearchParams();
-  const auth = useAuthStore();
 
   useEffect(() => {
     setCfgError(false);
@@ -205,21 +203,6 @@ export default function AuthPage() {
             </div>
           ) : null}
 
-          {cfg?.mock && mode === 'login' ? (
-            <div className="auth-dev">
-              <span className="auth-dev__label">开发者入口</span>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={async () => {
-                  await auth.devLogin();
-                  nav('/projects');
-                }}
-              >
-                跳过登录 (Demo)
-              </button>
-            </div>
-          ) : null}
         </div>
       </main>
     </div>

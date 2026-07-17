@@ -4,12 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { EmailSenderService } from './email-sender.service';
 
 export interface AuthConfig {
-  methods: string[]; // password | email_code | phone_code | wechat | feishu | mock
-  mock: boolean;
+  methods: string[]; // password | email_code | phone_code | wechat | feishu
 }
 
-/** Which login methods the frontend should show, derived from env. WeChat/Feishu
- *  appear only once their appid/secret is configured; mock is dev-only by default. */
+/** Which real login methods the frontend should show, derived from env. */
 @Injectable()
 export class AuthConfigService {
   constructor(
@@ -25,10 +23,6 @@ export class AuthConfigService {
 
   private has(name: string): boolean {
     return !!this.config.get<string>(name);
-  }
-
-  get mockEnabled(): boolean {
-    return this.flag('DEMO_MODE', false);
   }
 
   get wechatEnabled(): boolean {
@@ -49,11 +43,10 @@ export class AuthConfigService {
     // Returning `sent: true` without delivery would create an unusable login UI.
     if (this.wechatEnabled) m.push('wechat');
     if (this.feishuEnabled) m.push('feishu');
-    if (this.mockEnabled) m.push('mock');
     return m;
   }
 
   snapshot(): AuthConfig {
-    return { methods: this.methods(), mock: this.mockEnabled };
+    return { methods: this.methods() };
   }
 }
